@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": { "title": "B.Collection — Kiến trúc đích lấy dữ liệu và AI làm trung tâm", "quality_profile": "showcase", "viewBox": [1050, 480] },
+  "components": [
+    { "id": "sources", "type": "external", "label": "Nguồn & làm giàu", "sublabel": "Core/CRM • giao dịch • nhập liệu", "pos": [25, 150], "size": [170, 72], "tag": "Provenance + confidence" },
+    { "id": "data", "type": "database", "label": "Data Platform", "sublabel": "Intake • lakehouse • data quality", "pos": [225, 150], "size": [170, 72] },
+    { "id": "identityGraph", "type": "database", "label": "Customer 360 & Graph", "sublabel": "Golden ID • người–DN–tài sản–khoản vay", "pos": [425, 150], "size": [175, 72], "tag": "Temporal graph" },
+    { "id": "intelligence", "type": "backend", "label": "Features & Case Memory", "sublabel": "Khả năng trả • thiện chí • similarity", "pos": [630, 150], "size": [175, 72] },
+    { "id": "ai", "type": "backend", "label": "AI Decisioning", "sublabel": "Ưu tiên • NBA • dự báo • giải thích", "pos": [835, 150], "size": [180, 72], "tag": "Human-in-the-loop" },
+    { "id": "orchestration", "type": "backend", "label": "Strategy Orchestration", "sublabel": "Playbook • SLA • rule • approval", "pos": [835, 310], "size": [180, 72] },
+    { "id": "workbench", "type": "frontend", "label": "Collector Workbench", "sublabel": "Hồ sơ 360° • graph • giải thích", "pos": [630, 310], "size": [175, 72] },
+    { "id": "channels", "type": "external", "label": "Kênh thực thi", "sublabel": "Call/SMS/app • CN • pháp lý", "pos": [425, 310], "size": [175, 72] },
+    { "id": "governance", "type": "security", "label": "Trust, Privacy & Model Governance", "sublabel": "Purpose • access • DLP • audit • MRM", "pos": [25, 310], "size": [370, 72], "tag": "Policy-as-code • retention • kill switch" }
+  ],
+  "boundaries": [
+    { "kind": "security-group", "label": "Vùng xử lý dữ liệu nhạy cảm", "wraps": ["data", "identityGraph", "intelligence", "ai", "orchestration", "workbench"] }
+  ],
+  "connections": [
+    { "id": "source-data", "from": "sources", "to": "data", "label": "API / CDC / batch / event", "variant": "emphasis", "labelAt": [210, 240] },
+    { "id": "data-graph", "from": "data", "to": "identityGraph", "label": "Trusted data products", "variant": "emphasis", "labelAt": [410, 240] },
+    { "id": "graph-intelligence", "from": "identityGraph", "to": "intelligence", "label": "Graph signals + context", "variant": "emphasis", "labelAt": [615, 240] },
+    { "id": "intelligence-ai", "from": "intelligence", "to": "ai", "label": "Features + similar cases", "variant": "emphasis", "labelAt": [820, 240] },
+    { "id": "ai-orchestration", "from": "ai", "to": "orchestration", "label": "Gợi ý + confidence + lý do", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "labelAt": [905, 275] },
+    { "id": "orchestration-workbench", "from": "orchestration", "to": "workbench", "label": "Nhiệm vụ / phê duyệt", "variant": "emphasis", "labelAt": [820, 400] },
+    { "id": "workbench-channels", "from": "workbench", "to": "channels", "label": "Thực thi có kiểm soát", "variant": "emphasis", "labelAt": [615, 295] },
+    { "id": "feedback", "from": "orchestration", "to": "intelligence", "label": "Outcome + phản hồi", "variant": "dashed", "fromSide": "right", "toSide": "top", "via": [[1030, 346], [1030, 55], [717.5, 55]], "labelAt": [875, 40] },
+    { "id": "govern-data", "from": "governance", "to": "data", "label": "Lineage + retention", "variant": "security", "fromSide": "top", "toSide": "bottom", "labelAt": [260, 275] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Nguyên tắc quyết định", "items": ["AI đề xuất; con người chịu trách nhiệm với hành động tác động cao", "Tối ưu đồng thời hiệu quả, trải nghiệm và tuân thủ"] },
+    { "dot": "violet", "title": "Graph & chân dung", "items": ["Golden identity trước khi suy luận quan hệ", "Mọi thuộc tính có nguồn, thời điểm, độ tin cậy và mục đích"] },
+    { "dot": "rose", "title": "Không dùng", "items": ["Dữ liệu thu thập trái phép hoặc đặc điểm nhạy cảm để gây áp lực", "LLM tự quyết định đe dọa, bêu tên hoặc liên hệ người không có nghĩa vụ"] }
+  ]
+}

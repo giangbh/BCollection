@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "B.Collection — Data Flow từ dữ liệu đến chiến lược thu hồi nợ",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 500]
+  },
+  "stages": [
+    { "label": "Nguồn dữ liệu" },
+    { "label": "Tiếp nhận có kiểm soát" },
+    { "label": "Hợp nhất & quan hệ" },
+    { "label": "Trí tuệ & học hỏi" },
+    { "label": "Quyết định & kết quả" }
+  ],
+  "nodes": [
+    { "id": "internal", "type": "external", "label": "Nguồn nội bộ BIDV", "sublabel": "Core • CRM • giao dịch", "stage": 0, "row": 0, "tag": "System of record", "width": 136 },
+    { "id": "manual", "type": "frontend", "label": "Làm giàu thủ công", "sublabel": "Quan hệ • tín hiệu", "stage": 0, "row": 2, "tag": "Evidence required", "width": 136, "yOffset": -106 },
+    { "id": "external", "type": "external", "label": "Nguồn ngoài hợp pháp", "sublabel": "API cấp phép • OSINT", "stage": 0, "row": 4, "tag": "Allowlist", "width": 136, "yOffset": -219 },
+    { "id": "intake", "type": "security", "label": "Governed Data Intake", "sublabel": "API/CDC/event • purpose • quality", "stage": 1, "row": 2, "tag": "Policy gate", "width": 170, "yOffset": -106 },
+    { "id": "lakehouse", "type": "database", "label": "Collection Lakehouse", "sublabel": "Raw → curated → trusted", "stage": 2, "row": 0, "tag": "Lineage", "width": 160 },
+    { "id": "graph", "type": "database", "label": "Customer 360 & Graph", "sublabel": "Golden ID • người–DN–tài sản–vay", "stage": 2, "row": 3, "tag": "Temporal graph", "width": 160, "yOffset": -110 },
+    { "id": "memory", "type": "database", "label": "Features & Case Memory", "sublabel": "Signals • embeddings • similar cases", "stage": 3, "row": 0, "tag": "Versioned", "width": 160 },
+    { "id": "ai", "type": "backend", "label": "AI Decisioning", "sublabel": "Ưu tiên • NBA • dự báo • giải thích", "stage": 3, "row": 2, "tag": "Human-in-the-loop", "width": 160, "yOffset": -106 },
+    { "id": "strategy", "type": "backend", "label": "Strategy Orchestration", "sublabel": "Playbook • SLA • rules • phê duyệt", "stage": 4, "row": 0, "tag": "Guardrails", "width": 160 },
+    { "id": "execution", "type": "frontend", "label": "Workbench & Kênh", "sublabel": "Collector • call/SMS/app • pháp lý", "stage": 4, "row": 2, "tag": "Audited", "width": 160, "yOffset": -106 },
+    { "id": "outcome", "type": "messagebus", "label": "Outcome & Feedback", "sublabel": "Thanh toán • PTP • khiếu nại", "stage": 4, "row": 4, "tag": "Append-only", "width": 160, "yOffset": -219 }
+  ],
+  "flows": [
+    { "id": "internal-intake", "from": "internal", "to": "intake", "label": "Hồ sơ & giao dịch", "classification": "Dữ liệu ngân hàng nhạy cảm", "variant": "emphasis" },
+    { "id": "manual-intake", "from": "manual", "to": "intake", "label": "Quan sát có bằng chứng", "classification": "Dữ liệu nhập liệu", "variant": "security", "labelAt": [330, 330] },
+    { "id": "external-intake", "from": "external", "to": "intake", "label": "Allowlist + provenance", "classification": "Dữ liệu bên ngoài", "variant": "dashed" },
+    { "id": "intake-lakehouse", "from": "intake", "to": "lakehouse", "label": "Events đã kiểm tra", "classification": "Encrypted + lineage", "variant": "security" },
+    { "id": "lakehouse-graph", "from": "lakehouse", "to": "graph", "label": "Entities + temporal relations", "classification": "Trusted data product", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [530, 240] },
+    { "id": "lakehouse-memory", "from": "lakehouse", "to": "memory", "label": "Trusted facts", "classification": "Offline features", "variant": "default", "fromSide": "right", "toSide": "left", "route": "straight", "labelAt": [638, 100] },
+    { "id": "graph-memory", "from": "graph", "to": "memory", "label": "Graph signals", "classification": "Derived features", "variant": "emphasis", "labelAt": [638, 330] },
+    { "id": "memory-ai", "from": "memory", "to": "ai", "label": "Features + cases", "classification": "Model input", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [745, 215] },
+    { "id": "ai-strategy", "from": "ai", "to": "strategy", "label": "Action + confidence + reasons", "classification": "AI recommendation", "variant": "emphasis", "labelAt": [820, 340] },
+    { "id": "strategy-execution", "from": "strategy", "to": "execution", "label": "Plan + approval + SLA", "classification": "Approved instruction", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [960, 215] },
+    { "id": "execution-outcome", "from": "execution", "to": "outcome", "label": "Action + response", "classification": "Operational event", "variant": "default", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [960, 335] },
+    { "id": "outcome-memory", "from": "outcome", "to": "memory", "label": "Learning feedback", "classification": "Training evidence", "variant": "dashed", "fromSide": "right", "toSide": "top", "via": [[1060, 394], [1060, 70], [745, 70]], "labelAt": [900, 85] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Hot path", "items": ["Dữ liệu được hợp nhất trước khi tạo graph và features", "AI chỉ phát hành khuyến nghị có lý do và confidence"] },
+    { "dot": "rose", "title": "Control points", "items": ["Purpose, consent, provenance và quality được kiểm tra tại intake", "Dữ liệu nhạy cảm, model input và audit record có classification rõ ràng"] },
+    { "dot": "violet", "title": "Closed-loop learning", "items": ["Mọi hành động và phản hồi trở thành outcome event", "Case Memory học cả thành công, thất bại, khiếu nại và chi phí"] }
+  ]
+}
