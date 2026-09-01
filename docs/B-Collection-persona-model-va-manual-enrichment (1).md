@@ -1,5 +1,6 @@
 # B.COLLECTION — THIẾT KẾ CHI TIẾT PERSONA MODEL & MANUAL ENRICHMENT
-**Phiên bản:** v0.1 | **Tài liệu mẹ:** B-Collection-kien-truc-tong-the.md (Mục 5.1, 6) | **Liên quan:** B-Collection-schema-collection-graph.md
+**Phiên bản:** v0.2 | **Tài liệu mẹ:** B-Collection-kien-truc-tong-the.md (Mục 5.1, 6) | **Liên quan:** B-Collection-schema-collection-graph.md
+**Thay đổi chính so với v0.1:** chuyển `willingness_score` từ một điểm số duy nhất sang **ma trận điểm số có điều kiện theo treatment** (Mục A4.2), bổ sung `NO_ACTION` là một treatment hạng nhất — xem Mục A10.
 
 ---
 
@@ -74,7 +75,10 @@
 | `proactive_contact_count` | INT | Collection | Khách hàng chủ động liên hệ ngân hàng |
 | `dispute_raised` | BOOLEAN | Collection | Có tranh chấp về khoản nợ |
 | `first_payment_default` | BOOLEAN | Core | Cờ nghi ngờ gian lận từ đầu |
-| **`willingness_score`** | FLOAT 0–100 | Mô hình | A4.2 |
+| **`willingness_matrix`** | MAP<treatment, FLOAT 0–1> | Mô hình | **A4.2 — xác suất có điều kiện theo từng treatment, gồm cả `NO_ACTION`. Đây là trường NBA Engine đọc** |
+| `willingness_score` | FLOAT 0–100 | Dẫn xuất | Điểm tổng hợp cho con người đọc; **không dùng cho quyết định tự động** |
+| `best_treatment` | ENUM | Dẫn xuất | `argmax` của ma trận, trừ `NO_ACTION` |
+| `matrix_confidence` | MAP<treatment, FLOAT> | Mô hình | Độ tin cậy từng ô — thấp khi treatment ít dữ liệu lịch sử |
 | `willingness_coverage` | FLOAT | | Khách hàng mới quá hạn lần đầu → coverage thấp |
 
 ### D3 — Khả năng tiếp cận (Contactability)
@@ -182,15 +186,51 @@ ability_score = 100 × ability_raw × ability_coverage^0.5
 ```
 Nhân với `coverage^0.5` để **điểm thấp khi thiếu dữ liệu**, thay vì để mô hình đoán. Đây là lựa chọn có chủ đích: thiếu thông tin phải dẫn tới thận trọng, không dẫn tới lạc quan.
 
-### A4.2 Willingness Score
-Dùng mô hình học máy có hiệu chuẩn (calibrated GBM) thay vì công thức tuyến tính, vì các tín hiệu tương tác mạnh với nhau. Đầu ra là `P(hợp tác trả nợ trong 60 ngày | có liên hệ được)`, hiệu chuẩn bằng isotonic regression, rồi scale 0–100.
+### A4.2 Willingness — ma trận điểm số có điều kiện
 
-Các driver quan trọng nhất (theo kinh nghiệm ngành):
+> **Thay đổi so với v0.1:** trước đây `willingness_score` là **một** con số. Đó là thiết kế sai. Thiện chí trả nợ không phải thuộc tính cố định của khách hàng — nó phụ thuộc vào việc ngân hàng làm gì. Một khách hàng có thể có thiện chí thấp với cuộc gọi lúc 9h sáng nhưng thiện chí cao với đề nghị giãn kỳ hạn. Gộp thành một điểm số làm mất chính thông tin mà NBA Engine cần.
+
+**Mô hình mới:** thay vì `P(hợp tác)`, mô hình sinh ra **xác suất có điều kiện theo từng treatment**:
+
+```
+willingness_matrix[t] = P(hợp tác trả nợ trong 60 ngày | treatment = t, liên hệ được)
+                        với t ∈ tập treatment khả dụng
+```
+
+| Treatment `t` | Ký hiệu | Có trong MVP |
+|---|---|---|
+| Nhắc nợ tự động (SMS/ZNS) | `DIGITAL_REMINDER` | ✓ |
+| Gọi điện trong khung giờ tối ưu | `VOICE_OPTIMAL_WINDOW` | ✓ |
+| Gọi điện ngoài khung giờ tối ưu | `VOICE_OTHER` | ✓ |
+| Chào phương án giãn kỳ hạn | `RESTRUCTURE_OFFER` | GĐ2 |
+| Chào miễn giảm lãi phạt | `INTEREST_WAIVER` | GĐ2 |
+| Chào chiết khấu tất toán sớm | `EARLY_SETTLEMENT` | GĐ2 |
+| Làm việc với bên bảo lãnh | `GUARANTOR_ENGAGEMENT` | GĐ2 |
+| **Không can thiệp** | `NO_ACTION` | ✓ |
+
+`NO_ACTION` là một cột đầy đủ trong ma trận, không phải trường hợp đặc biệt: `willingness_matrix[NO_ACTION]` chính là xác suất tự khỏi nợ (đầu ra của ML1). Đưa nó vào cùng ma trận cho phép NBA Engine so sánh trực tiếp "làm gì đó" với "không làm gì" trên cùng một thang đo.
+
+**Kỹ thuật:** calibrated GBM đa đầu ra (một mô hình cho mỗi treatment, huấn luyện trên tập con tương ứng), hiệu chuẩn bằng isotonic regression. Với treatment ít dữ liệu lịch sử, dùng mô hình chung có `treatment` là biến đầu vào, chấp nhận độ chính xác thấp hơn và ghi `matrix_confidence` thấp.
+
+**Điểm tổng hợp (giữ lại cho con người đọc):**
+```
+willingness_score = 100 × max(willingness_matrix[t]) với t ≠ NO_ACTION
+best_treatment    = argmax(willingness_matrix[t]) với t ≠ NO_ACTION
+```
+Điểm tổng hợp chỉ dùng cho Persona Card và ma trận chiến lược A4.4. **NBA Engine phải đọc toàn bộ ma trận, không được đọc điểm tổng hợp** — nếu đọc điểm tổng hợp thì lại quay về bài toán cũ.
+
+**Các driver quan trọng nhất** (chung cho mọi treatment):
 1. `ptp_kept_rate` — mạnh nhất
 2. `paying_other_banks_while_overdue` — tín hiệu chọn lọc ưu tiên
-3. `self_cure_count_24m`
+3. `self_cure_count_24m` — đặc biệt mạnh cho cột `NO_ACTION`
 4. `avoidance_pattern`
 5. `proactive_contact_count`
+
+**Vì sao đây là bước đệm sang uplift model:** ma trận có điều kiện là dạng trung gian giữa mô hình dự báo và mô hình nhân quả. Khi có đủ dữ liệu thí nghiệm từ holdout và champion–challenger, uplift được tính trực tiếp từ ma trận:
+```
+uplift(t) = willingness_matrix[t] − willingness_matrix[NO_ACTION]
+```
+Nghĩa là GĐ2 **không phải xây lại**, chỉ cần thay cách ước lượng từng ô ma trận bằng phương pháp nhân quả (T-learner / X-learner). Đây là lý do nên đổi cấu trúc ngay từ MVP dù MVP chỉ có 4 cột.
 
 ### A4.3 Contactability Score
 ```
@@ -209,6 +249,10 @@ contactability = 100 × [ 0.35 × best_phone_contactability
 | **Ability < 60** | **S3** Khó khăn thực sự | **S4** Mất khả năng / mất liên lạc |
 
 Ngưỡng 60 là giá trị khởi tạo, cần hiệu chỉnh theo phân khúc. Ô S2 và S4 **bắt buộc có người duyệt** trước khi áp treatment cứng — đây là hai ô có hậu quả không đảo ngược được.
+
+**Lưu ý về mối quan hệ với ma trận A4.2:** ma trận 2×2 này dùng `willingness_score` (điểm tổng hợp), nên nó là **công cụ giao tiếp với lãnh đạo và định hướng chính sách**, không phải cơ chế ra quyết định. Quyết định thực tế cho từng khách hàng do NBA Engine đưa ra từ `willingness_matrix` đầy đủ. Hai người cùng rơi vào ô S3 vẫn có thể nhận hai treatment khác nhau — và đó là đúng.
+
+**Một hệ quả đáng chú ý:** khách hàng có `willingness_matrix[NO_ACTION]` cao (khả năng tự khỏi nợ lớn) sẽ rơi vào ô S1 theo ma trận, nhưng hành động đúng với họ là *không làm gì*, không phải "nhắc nhẹ đa kênh". Ma trận 2×2 không diễn đạt được sự khác biệt này — thêm một lý do để không dùng nó làm cơ chế quyết định.
 
 ---
 
@@ -254,8 +298,15 @@ Mục tiêu: collector nắm được tình huống trong **15 giây** trước 
 │ NGUYỄN VĂN A · CIF 0012345 · Case #C-2026-88213      [S3] Khó khăn   │
 │ Nợ 245.000.000 · DPD 47 · Nhóm 2 · Vay tiêu dùng có TSBĐ             │
 ├──────────────────────────────────────────────────────────────────────┤
-│  Khả năng trả  ████████░░ 42/100    Thiện chí  ██████████████░ 71/100│
-│  Tiếp cận      ████████████░ 68/100  Độ phủ dữ liệu: 82%             │
+│  Khả năng trả  ████████░░ 42/100     Tiếp cận  ████████████░ 68/100  │
+│  Độ phủ dữ liệu: 82%                                                 │
+├──────────────────────────────────────────────────────────────────────┤
+│ KHẢ NĂNG HỢP TÁC THEO CÁCH TIẾP CẬN                                  │
+│   Chào giãn kỳ hạn      ████████████████░ 83%  ◄ tốt nhất  (tin cậy ▲)│
+│   Gọi khung 18–20h      ██████████████░░░ 71%             (tin cậy ▲)│
+│   SMS/Zalo nhắc nợ      █████████░░░░░░░░ 44%                        │
+│   Gọi ngoài khung giờ   ███████░░░░░░░░░░ 38%                        │
+│   Không can thiệp       ████░░░░░░░░░░░░░ 21%                        │
 ├──────────────────────────────────────────────────────────────────────┤
 │ ⚠  LƯU Ý BẮT BUỘC                                                    │
 │   • Chỉ liên hệ: KH chính, bên bảo lãnh Trần Thị B (0912xxx)         │
@@ -283,6 +334,8 @@ Mục tiêu: collector nắm được tình huống trong **15 giây** trước 
 - Mọi con số đều bấm được để xem nguồn (P3).
 - Nút "Không đồng ý khuyến nghị" **bắt buộc chọn lý do từ danh mục** — dữ liệu này là đầu vào cho vòng lặp cải tiến, tương tự cơ chế Approver Quality trong CreditAgent.
 - Khi `coverage < 50%` hoặc `er_ambiguity_flag=true`: banner cảnh báo, ẩn khuyến nghị hành động cứng, chỉ cho phép hành động an toàn.
+- **Luôn hiển thị dòng "Không can thiệp"** trong khối ma trận, kể cả khi nó thấp. Cán bộ cần thấy rằng "không làm gì" là một lựa chọn được cân nhắc, không phải sự lười biếng. Khi `NO_ACTION` là ô cao nhất, Persona Card hiển thị thông điệp rõ ràng: *"Khách hàng này nhiều khả năng tự trả. Khuyến nghị: không liên hệ trong 7 ngày tới."*
+- Ô có `confidence < 0.6` hiển thị mờ kèm dấu hiệu cảnh báo — cán bộ cần biết ô nào là ước lượng yếu do ít dữ liệu lịch sử.
 
 ---
 
@@ -309,14 +362,27 @@ Mục tiêu: collector nắm được tình huống trong **15 giây** trước 
   "persona_id": "PSN-000123456",
   "subject": { "type": "PERSON", "person_id": "P-8891234", "cif_no": ["0012345"] },
   "as_of": "2026-09-01T02:15:00+07:00",
-  "schema_version": "1.0",
-  "model_versions": { "willingness": "wl-2.3", "vector": "pv-1.4", "cluster": "cl-2026Q3" },
+  "schema_version": "2.0",
+  "model_versions": { "willingness": "wl-3.0", "vector": "pv-1.4", "cluster": "cl-2026Q3" },
   "scores": {
     "ability":       { "value": 42, "coverage": 0.85, "top_drivers": [
         {"feature":"debt_service_ratio_actual","contribution":-0.31,"evidence_ref":"CORE:TXN:..."},
         {"feature":"net_collateral_value","contribution":0.18,"evidence_ref":"GRAPH:COLL:..."} ] },
-    "willingness":   { "value": 71, "coverage": 0.78, "top_drivers": [...] },
     "contactability":{ "value": 68, "coverage": 0.90, "top_drivers": [...] }
+  },
+  "willingness": {
+    "matrix": {
+      "NO_ACTION":            {"p": 0.21, "confidence": 0.88},
+      "DIGITAL_REMINDER":     {"p": 0.44, "confidence": 0.85},
+      "VOICE_OPTIMAL_WINDOW": {"p": 0.71, "confidence": 0.82},
+      "VOICE_OTHER":          {"p": 0.38, "confidence": 0.79},
+      "RESTRUCTURE_OFFER":    {"p": 0.83, "confidence": 0.54}
+    },
+    "score": 83,
+    "best_treatment": "RESTRUCTURE_OFFER",
+    "coverage": 0.78,
+    "top_drivers": [...],
+    "note": "NBA Engine đọc 'matrix'. 'score' và 'best_treatment' chỉ để hiển thị."
   },
   "segment_cell": "S3",
   "cluster": { "id": "P-07", "label": "Hộ kinh doanh | mùa vụ | thiện chí cao", "similarity": 0.88 },
@@ -339,6 +405,25 @@ Mục tiêu: collector nắm được tình huống trong **15 giây** trước 
   "snapshot_id": "SNP-2026-09-01-000123456-01"
 }
 ```
+
+---
+
+## A10. Nhật ký thay đổi
+
+### v0.2 — Ma trận điểm số có điều kiện
+
+| Nội dung | v0.1 | v0.2 |
+|---|---|---|
+| Thiện chí trả | Một điểm số `willingness_score` 0–100 | **Ma trận** `willingness_matrix[treatment] → P(hợp tác)` kèm `confidence` từng ô |
+| "Không can thiệp" | Không được mô hình hoá; ML1 (self-cure) là mô hình tách rời | `NO_ACTION` là **một cột trong ma trận**, so sánh trực tiếp với các treatment khác |
+| Đầu vào của NBA | Ba điểm số | Ability + Contactability (điểm số) + Willingness (ma trận) |
+| Đường tiến hoá sang uplift | Phải xây lại mô hình | `uplift(t) = matrix[t] − matrix[NO_ACTION]` — chỉ đổi phương pháp ước lượng, giữ nguyên cấu trúc |
+| Ma trận chiến lược 2×2 | Cơ chế quyết định | Công cụ giao tiếp và định hướng chính sách; quyết định thực tế đọc từ ma trận đầy đủ |
+| Persona Card | Hiển thị 3 thanh điểm | Thêm khối "Khả năng hợp tác theo cách tiếp cận", luôn có dòng "Không can thiệp" |
+
+**Nguồn ý tưởng:** McKinsey, *The analytics-enabled collections model* (2018) — phần Value-at-risk assessment mô tả hướng đi trong đó mỗi người vay có nhiều điểm số tuỳ theo chiến lược liên hệ và phương án được chào, thay vì một điểm rủi ro duy nhất; và Exhibit 1 mô tả phân khúc "đãng trí" với can thiệp đề xuất là bỏ qua vì nhóm này nhiều khả năng tự khỏi nợ.
+
+**Lưu ý khi triển khai:** thay đổi này làm tăng đáng kể yêu cầu về dữ liệu huấn luyện — cần đủ quan sát cho từng cặp (treatment × phân khúc). Nếu dữ liệu lịch sử không đủ (xem hạng mục 4b ở Mục B10), MVP có thể khởi đầu với 3 cột (`NO_ACTION`, `DIGITAL_REMINDER`, `VOICE_OPTIMAL_WINDOW`) và mở rộng dần. Cấu trúc dữ liệu vẫn phải là ma trận ngay từ đầu, kể cả khi chỉ có 3 cột — đổi cấu trúc sau tốn kém hơn nhiều so với để trống cột.
 
 ---
 
@@ -601,6 +686,8 @@ Chỉ số cuối là chỉ số quan trọng nhất — nó trả lời câu h�
 | 2 | Chốt `NEGOTIATION_LEVER` enum với Pháp chế bằng văn bản | Pháp chế |
 | 3 | Xây bộ dữ liệu huấn luyện cho Sensitive Content Classifier tiếng Việt | ML + Compliance |
 | 4 | Hiệu chỉnh trọng số `ability_score` và ngưỡng ma trận 2×2 trên dữ liệu 2 năm | ML |
+| 4b | **Kiểm tra tính khả thi của ma trận có điều kiện**: dữ liệu lịch sử có đủ quan sát cho từng cặp (treatment × phân khúc) không? Nếu một treatment có < 500 quan sát thì chưa ước lượng được ô đó | ML |
+| 4c | **Thiết kế lại API Persona → NBA** để truyền cả ma trận, và bổ sung kiểm tra: NBA không được đọc `willingness.score` | SA |
 | 5 | Proxy detection test cho Persona Vector | Model Validation |
 | 6 | Thiết kế chi tiết UI Persona Card + call wrap-up form, test với 10 collector thật | UX + PO |
 | 7 | Định nghĩa cơ chế snapshot & lưu trữ 5 năm | Data Eng |

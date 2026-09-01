@@ -1,6 +1,7 @@
 # B.COLLECTION — ĐỀ XUẤT KIẾN TRÚC TỔNG THỂ
 ### Hệ thống Quản lý & Tối ưu Thu hồi nợ trên nền Big Data – Graph – AI
-**Góc nhìn:** Enterprise Architect | **Phạm vi:** BIDV (bán lẻ + KHDN) | **Phiên bản:** v0.1 (bản đề xuất kiến trúc)
+**Góc nhìn:** Enterprise Architect | **Phạm vi:** BIDV (bán lẻ + KHDN) | **Phiên bản:** v0.2 (bản đề xuất kiến trúc)
+**Thay đổi so với v0.1:** bổ sung ML12 (Collector–Debtor Matching, Mục 8.1); `NO_ACTION` thành hành động hạng nhất trong NBA Engine (Mục 9.3); champion–challenger mở rộng sang cấp kịch bản đàm phán (Mục 9.4). Xem thêm nhật ký thay đổi ở Mục A10 của tài liệu Persona Model.
 
 ---
 
@@ -291,6 +292,11 @@ Toàn bộ pipeline chạy trong network zone riêng, không có đường ghi t
 | ML9 | **Uplift model cho treatment** | Δ hiệu quả của mỗi treatment trên từng khách | Trái tim của NBA Engine | Causal/Uplift |
 | ML10 | **Persona clustering & embedding** | Persona Vector + Cluster ID | Case Reference Engine | Autoencoder/UMAP+HDBSCAN |
 | ML11 | **Fraud / first-payment-default** | Cờ nghi ngờ gian lận ngay từ đầu | Tách luồng xử lý riêng | Graph + GBM |
+| ML12 | **Collector–Debtor Matching** | Cán bộ nào hiệu quả nhất với phân khúc persona nào | Phân công case (skill-based routing) | GBM / matrix factorization |
+
+**Về ML12 (bổ sung sau khi tham khảo tài liệu McKinsey 2018):** đây là mô hình **rẻ nhất** trong toàn danh mục — chỉ cần dữ liệu lịch sử "cán bộ × phân khúc × kết quả", không cần nguồn dữ liệu mới nào. Nhiều ngân hàng phân công case theo mức rủi ro và theo mức độ sẵn có của cán bộ chứ không ghép cặp có chủ đích; khi ghép cặp bằng dữ liệu, kết quả cải thiện và thời gian gọi giảm.
+
+**Ranh giới thiết kế bắt buộc:** ML12 ghép cặp theo **hiệu quả lịch sử đã quan sát được trên từng phân khúc**, tuyệt đối không theo "hồ sơ tính cách tương đồng" giữa cán bộ và khách hàng. Lý do: (a) mâu thuẫn với nguyên tắc không lập hồ sơ tâm lý trong Persona Model; (b) dữ liệu tính cách nhân viên là dữ liệu cá nhân có chủ thể là chính nhân viên, cần cơ sở pháp lý và DPIA riêng theo Luật BVDLCN 2025; (c) rủi ro tạo phân biệt đối xử trong phân công công việc. Nếu BIDV muốn làm phân tích nhân sự, đó phải là dự án riêng của Khối Nhân sự, không nhét vào B.Collection.
 
 **Điểm kiến trúc quan trọng — ML9 (Uplift):** hầu hết hệ thống collection thất bại vì dùng mô hình *dự báo* (ai sẽ trả) thay vì mô hình *nhân quả* (hành động nào làm tăng khả năng trả). Kết quả là ngân hàng dồn nguồn lực vào nhóm dù sao cũng tự trả. Bắt buộc phải có **holdout group (control) 5–10%** không can thiệp hoặc can thiệp tối thiểu, duy trì liên tục, để đo uplift thực. Đây là điều kiện tiên quyết để chứng minh ROI của cả hệ thống.
 
@@ -335,19 +341,55 @@ Mỗi ô trong ladder là một **strategy cell** có thể cấu hình bằng U
 
 ### 9.3 Next Best Action Engine
 ```
-Input:  Persona Vector + Case State + Ràng buộc nguồn lực + Kết quả ML1..ML11
+Input:  Persona (Ability, Contactability, WILLINGNESS_MATRIX) + Case State
+        + Ràng buộc nguồn lực + Kết quả ML1..ML12
         + Reference Cases tương đồng (Mục 10)
-Logic:  Với mỗi action khả dĩ a ∈ A:
+
+Tập hành động:  A = {các treatment chủ động} ∪ {NO_ACTION}
+                ── NO_ACTION là phần tử hạng nhất của A, không phải trường hợp đặc biệt
+
+Logic:  Với mỗi a ∈ A:
             Score(a) = Uplift(a|persona) × ExpectedRecovery − Cost(a) − RiskPenalty(a)
+            trong đó  Uplift(a) = willingness_matrix[a] − willingness_matrix[NO_ACTION]
+                      Cost(NO_ACTION) = 0
+                      Uplift(NO_ACTION) = 0   → Score(NO_ACTION) = 0 (mốc so sánh)
         Loại bỏ các action bị Guardrail chặn
         Áp ràng buộc tối ưu toàn cục (số collector, số line dialer, ngân sách field visit)
         → Bài toán assignment: tối đa hoá tổng thu hồi kỳ vọng
-Output: Hành động + kênh + thời điểm + kịch bản + người thực hiện + lý do (explanation)
+Output: Hành động (có thể là NO_ACTION) + kênh + thời điểm + kịch bản
+        + người thực hiện (ML12) + lý do (explanation)
 ```
 Giải bằng **constrained optimization** (không phải chỉ ranking) — vì nguồn lực thu hồi là hữu hạn và đây chính là chỗ tạo ra 20–25% cải thiện CTC.
 
+**`NO_ACTION` là hành động hạng nhất.** `Score(NO_ACTION) = 0` trở thành mốc chuẩn: mọi hành động chủ động phải chứng minh giá trị dương sau khi trừ chi phí thì mới được chọn. Đây không phải chi tiết kỹ thuật nhỏ mà là thay đổi căn bản trong logic — nó cho phép hệ thống chủ động *không* liên hệ với nhóm khách hàng nhiều khả năng tự khỏi nợ, thay vì mặc định luôn phải làm gì đó.
+
+Giá trị của điều này đến từ hai phía: tiết kiệm chi phí liên hệ, và **giữ trải nghiệm khách hàng** — nhắc nợ một người vốn đã định trả vào ngày lương là hành động có giá trị âm. Tài liệu McKinsey mô tả một phân khúc "đãng trí" với can thiệp đề xuất là bỏ qua hoặc chỉ dùng tin nhắn thoại tự động vì nhóm này nhiều khả năng tự khỏi nợ, ước tính tiết kiệm 10% thời gian cán bộ; và nhận diện tự khỏi nợ sớm bằng mô hình ước tính tăng năng lực đội thu hồi 5–10%.
+
+> **Cảnh báo về mô hình vận hành:** cán bộ được giao chỉ tiêu theo *số cuộc gọi thực hiện* sẽ không bao giờ chấp nhận `NO_ACTION`. Nếu BIDV giữ nguyên cách giao chỉ tiêu hiện tại, tính năng này sẽ bị vô hiệu hoá trên thực tế dù đã code xong. Phải chuyển chỉ tiêu cán bộ sang **thu hồi ròng sau chi phí** hoặc **giá trị thu hồi trên mỗi giờ làm việc**, không phải khối lượng liên hệ. Đây là điều kiện tổ chức, không phải điều kiện kỹ thuật.
+
 ### 9.4 Champion–Challenger
-Bắt buộc có framework thử nghiệm: mọi chiến lược mới chạy trên 10–15% danh mục, so với champion, đo bằng chỉ số kinh tế (thu hồi ròng sau chi phí), tự động promote/rollback. Không có cơ chế này, sau 2 năm không ai biết hệ thống có thực sự hiệu quả hay không.
+
+Bắt buộc có framework thử nghiệm ở **hai cấp độ**:
+
+**Cấp 1 — Chiến lược:** mọi chiến lược mới chạy trên 10–15% danh mục, so với champion, đo bằng chỉ số kinh tế (thu hồi ròng sau chi phí), tự động promote/rollback. Không có cơ chế này, sau 2 năm không ai biết hệ thống có thực sự hiệu quả hay không.
+
+**Cấp 2 — Kịch bản đàm phán (bổ sung v0.2):** áp dụng cùng phương pháp cho từng yếu tố trong kịch bản nói chuyện. Quy trình ba bước, do Collection Strategy Team vận hành thường trực:
+
+```
+[1] SINH GIẢ THUYẾT   Nghe ghép cuộc gọi + phỏng vấn cán bộ giỏi + phỏng vấn khách hàng
+                      → 6–10 giả thuyết về yếu tố kịch bản có thể tăng tỷ lệ giữ cam kết
+[2] KIỂM CHỨNG        Thử nghiệm có đối chứng trên mẫu đủ lớn cho từng giả thuyết
+                      Đo bằng PTP Kept Rate, không phải bằng cảm nhận của cán bộ
+[3] TRIỂN KHAI        Yếu tố hiệu quả nhất đưa vào kịch bản chuẩn của phân khúc
+                      + huấn luyện liên tục + đo lại sau 90 ngày
+```
+
+Tài liệu McKinsey ghi nhận một tổ chức phát hành thẻ áp dụng quy trình này với 8 giả thuyết được kiểm chứng trên 200 cuộc gọi, trong đó bốn yếu tố hiệu quả nhất là: giải quyết vướng mắc về phương thức thanh toán (+15 điểm %), neo đàm phán ở số tiền đầy đủ (+14), nêu hệ quả có liên quan về mặt cảm xúc (+22), và tạo "ý định thực hiện" tức chốt cụ thể ngày và cách trả (+8).
+
+**Ba lưu ý khi áp dụng tại BIDV:**
+1. **Mẫu 200 cuộc gọi cho 8 giả thuyết là nhỏ.** Coi kết quả trên là gợi ý giả thuyết để tự kiểm chứng, không phải mức kỳ vọng. Cần tính cỡ mẫu tối thiểu cho từng thử nghiệm.
+2. **Yếu tố "nêu hệ quả có liên quan về mặt cảm xúc" phải đi qua Content Filter.** Nêu chi phí lãi phạt tích luỹ hay rủi ro xử lý TSBĐ là hợp lệ và đúng là có sức nặng; nêu hệ quả liên quan đến gia đình, danh dự hay quan hệ xã hội thì không. Chỉ các mã trong enum `negotiation_lever` đã duyệt được phép đưa vào thử nghiệm.
+3. **Mọi kịch bản thử nghiệm phải được Compliance duyệt trước khi chạy**, không phải duyệt sau khi thấy kết quả tốt.
 
 ---
 
@@ -514,7 +556,7 @@ Cạm bẫy thứ ba là nghiêm trọng nhất: một hệ thống học máy s
 | **Data Owner** | Từng domain dữ liệu có chủ sở hữu định danh |
 | **DPO / Compliance Officer** | Phê duyệt DPIA, sở hữu Guardrail policy, review case vào kho reference |
 | **Model Risk Committee** | Validate mô hình độc lập, phê duyệt lên production |
-| **Collection Strategy Team** | Cấu hình strategy cell, chạy champion–challenger — **đây là vai trò mới cần thành lập** |
+| **Collection Strategy Team** | Cấu hình strategy cell, chạy champion–challenger ở cả hai cấp (chiến lược và kịch bản đàm phán — Mục 9.4), sở hữu quy trình sinh giả thuyết → kiểm chứng → triển khai — **đây là vai trò mới cần thành lập** |
 | **Data/ML Engineering** | Nền tảng, pipeline, MLOps |
 | **QA & Ethics Review** | Rà soát chất lượng tương tác, xử lý cảnh báo từ QA tự động |
 
