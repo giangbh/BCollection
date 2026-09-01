@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IF_LOS_02_PartyObligationSchema",
+  "type": "object",
+  "required": [
+    "loan_id",
+    "party_id",
+    "party_type",
+    "edge_type",
+    "contact_eligible",
+    "source_system",
+    "valid_from"
+  ],
+  "properties": {
+    "loan_id": { "type": "string" },
+    "party_id": { "type": "string" },
+    "party_type": { "type": "string", "enum": ["PERSON", "ORG"] },
+    "edge_type": { "type": "string", "enum": ["BORROWED", "CO_BORROWER_WITH", "GUARANTEES", "LEGAL_REP_OF"] },
+    "contact_eligible": { "type": "string", "enum": ["YES", "NO", "CONDITIONAL"] },
+    "source_system": { "type": "string", "enum": ["LOS", "RLOS", "CLOS", "LMS"] },
+    "valid_from": { "type": "string", "format": "date" },
+    "valid_to": { "type": ["string", "null"], "format": "date" }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCollectionPolicySchema",
+  "type": "object",
+  "required": [
+    "policy_version",
+    "effective_from",
+    "approved_by",
+    "approval_ref",
+    "controls"
+  ],
+  "properties": {
+    "policy_version": { "type": "string" },
+    "effective_from": { "type": "string", "format": "date-time" },
+    "approved_by": { "type": "string" },
+    "approval_ref": { "type": "string" },
+    "controls": {
+      "type": "object",
+      "required": ["g04_frequency", "g05_time_window", "g06_content", "g07_vulnerability"],
+      "properties": {
+        "g04_frequency": {
+          "type": "object",
+          "required": ["max_daily_attempts_total", "max_daily_attempts_per_channel"],
+          "properties": {
+            "max_daily_attempts_total": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "max_daily_attempts_per_channel": {
+              "type": "object",
+              "properties": {
+                "VOICE": { "type": "integer", "minimum": 1, "maximum": 3 },
+                "SMS": { "type": "integer", "minimum": 1, "maximum": 3 },
+                "ZALO": { "type": "integer", "minimum": 1, "maximum": 3 }
+              }
+            }
+          }
+        },
+        "g05_time_window": {
+          "type": "object",
+          "required": ["start_hour", "end_hour", "allowed_days"],
+          "properties": {
+            "start_hour": { "type": "string", "pattern": "^(0[7-9]|1[0-9]|20):[0-5][0-9]$" },
+            "end_hour": { "type": "string", "pattern": "^(0[8-9]|1[0-9]|2[0-1]):[0-5][0-9]$" },
+            "allowed_days": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] }
+            }
+          }
+        },
+        "g06_content": {
+          "type": "object",
+          "required": ["prohibited_categories", "allowed_levers"],
+          "properties": {
+            "prohibited_categories": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "allowed_levers": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "g07_vulnerability": {
+          "type": "object",
+          "required": ["action_on_vulnerability"],
+          "properties": {
+            "action_on_vulnerability": { "type": "string", "enum": ["BLOCK_HARD_COLLECTION", "ROUTE_TO_SUPPORT"] }
+          }
+        }
+      }
+    }
+  }
+}

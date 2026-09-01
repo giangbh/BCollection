@@ -1,0 +1,83 @@
+:root {
+  --primary: #005a54;       /* BIDV Green / Deep Teal */
+  --primary-hover: #004540;
+  --accent: #d4a017;        /* Gold */
+  --bg-main: #0f172a;       /* Slate 900 */
+  --bg-card: #1e293b;       /* Slate 800 */
+  --bg-card-sub: #334155;   /* Slate 700 */
+  --border: #334155;
+  --text-main: #f8fafc;
+  --text-sub: #94a3b8;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --success: #10b981;
+  --info: #3b82f6;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-dpd-low { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.badge-dpd-mid { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.badge-dpd-high { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.badge-treated { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.badge-holdout { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-secondary { background: var(--bg-card-sub); color: var(--text-main); }
+.btn-secondary:hover { background: #475569; }
+
+.score-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #334155;
+  overflow: hidden;
+  position: relative;
+}
+
+.score-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-main); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }

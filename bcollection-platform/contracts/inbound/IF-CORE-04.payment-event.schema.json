@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IF_CORE_04_PaymentEventSchema",
+  "type": "object",
+  "required": [
+    "event_id",
+    "timestamp",
+    "loan_id",
+    "debtor_cif",
+    "amount_paid",
+    "remaining_overdue_amount",
+    "payment_channel"
+  ],
+  "properties": {
+    "event_id": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "loan_id": { "type": "string" },
+    "debtor_cif": { "type": "string" },
+    "amount_paid": { "type": "number", "minimum": 0.01 },
+    "remaining_overdue_amount": { "type": "number", "minimum": 0 },
+    "payment_channel": { "type": "string", "enum": ["SMARTBANKING", "VIETQR", "COUNTER", "AUTODEBIT"] }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IF_MSG_01_MessageSendSchema",
+  "type": "object",
+  "required": [
+    "request_id",
+    "guardrail_token",
+    "channel",
+    "recipient_phone_e164",
+    "template_id",
+    "template_params"
+  ],
+  "properties": {
+    "request_id": { "type": "string" },
+    "guardrail_token": { "type": "string" },
+    "channel": { "type": "string", "enum": ["SMS", "ZALO", "EMAIL", "APP_NOTIFICATION"] },
+    "recipient_phone_e164": { "type": "string", "pattern": "^\\+84[0-9]{9,10}$" },
+    "template_id": { "type": "string" },
+    "template_params": { "type": "object" },
+    "payment_link": { "type": "string" }
+  }
+}

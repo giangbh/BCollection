@@ -1,0 +1,39 @@
+policy_version: "gp-2026.09.01-r1"
+effective_from: "2026-09-01T00:00:00+07:00"
+approved_by: "DPO & Compliance Officer"
+approval_ref: "QD-BCOLLECTION-COMPLIANCE-001"
+
+controls:
+  g04_frequency:
+    max_daily_attempts_total: 3
+    max_daily_attempts_per_channel:
+      VOICE: 2
+      SMS: 2
+      ZALO: 2
+
+  g05_time_window:
+    start_hour: "07:00"
+    end_hour: "21:00"
+    allowed_days: ["MON", "TUE", "WED", "THU", "FRI", "SAT"]
+
+  g06_content:
+    prohibited_categories:
+      - "THIRD_PARTY_HARASSMENT"
+      - "HEALTH_DISCLOSURE"
+      - "RELIGION_POLITICS"
+      - "DEFAMATION_THREAT"
+      - "PUBLIC_SHAMING"
+    allowed_levers:
+      - "CIC_CREDIT_RECORD"
+      - "ACCRUING_PENALTY_COST"
+      - "COLLATERAL_ENFORCEMENT_RISK"
+      - "LITIGATION_COST_TIME"
+      - "CORPORATE_CREDIT_RELATIONSHIP"
+      - "EARLY_SETTLEMENT_DISCOUNT"
+      - "INTEREST_WAIVER_OFFER"
+      - "RESTRUCTURE_OPPORTUNITY"
+      - "CASH_FLOW_TIMING"
+      - "COLLATERAL_RELEASE_INCENTIVE"
+
+  g07_vulnerability:
+    action_on_vulnerability: "BLOCK_HARD_COLLECTION"
