@@ -56,7 +56,7 @@ export const PersonaCardView: React.FC<PersonaCardViewProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 700 }}>{persona.full_name}</h2>
             <span className="badge" style={{ backgroundColor: 'rgba(0,90,84,0.4)', color: '#34d399' }}>
-              [{persona.segment_cell}] {persona.segment_cell === 'S3' ? 'Khó khăn tạm thời' : 'Quên lịch / Tự khỏi'}
+              [{persona.segment_cell}] {persona.segment_name || (persona.segment_cell === 'S3' ? 'Khó khăn tạm thời' : 'Quên lịch / Tự khỏi')}
             </span>
           </div>
           <p style={{ fontSize: '12px', color: 'var(--text-sub)', marginTop: '2px' }}>
