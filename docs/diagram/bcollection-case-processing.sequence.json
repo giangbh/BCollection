@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "B.Collection — Quy trình Xử lý 1 Hồ sơ Nợ B1 (Voice Call, Nhắn tin & Guardrail)",
+    "quality_profile": "showcase",
+    "viewBox": [910, 1180],
+    "animation": "trace",
+    "views": [
+      {
+        "id": "persona-and-balance",
+        "label": "1. Persona & Balance Check",
+        "focus": ["collector", "workspace", "api", "core"],
+        "note": "Chuyên viên xem Persona 360 và hệ thống kiểm tra số dư tức thời chống đòi nợ oan."
+      },
+      {
+        "id": "voice-call-flow",
+        "label": "2. Luồng Gọi điện (Voice Call)",
+        "focus": ["collector", "workspace", "api", "guardrail", "channels", "debtor", "audit"],
+        "note": "Thẩm định L6 Guardrail, cấp token ES256, quay số CTI và ghi nhận cam kết PTP."
+      },
+      {
+        "id": "messaging-flow",
+        "label": "3. Luồng Nhắn tin (SMS/ZNS)",
+        "focus": ["workspace", "api", "guardrail", "channels", "debtor", "audit"],
+        "note": "Thẩm định Guardrail, gửi tin nhắn Brandname kèm link VietQR động qua Telco/Zalo."
+      }
+    ]
+  },
+  "participants": [
+    { "id": "collector", "type": "external", "label": "Chuyên viên", "sublabel": "Collector" },
+    { "id": "workspace", "type": "frontend", "label": "Workspace", "sublabel": "Web App" },
+    { "id": "api", "type": "backend", "label": "Core API", "sublabel": "FastAPI" },
+    { "id": "core", "type": "backend", "label": "Core Bank", "sublabel": "SIBS ESB" },
+    { "id": "guardrail", "type": "security", "label": "Guardrail", "sublabel": "Engine L6" },
+    { "id": "channels", "type": "backend", "label": "Channel Hub", "sublabel": "CTI & SMS/ZNS" },
+    { "id": "debtor", "type": "external", "label": "Khách nợ", "sublabel": "Chính chủ" },
+    { "id": "audit", "type": "database", "label": "Audit Chain", "sublabel": "SHA-256" }
+  ],
+  "segments": [
+    { "from": 145, "to": 395, "label": "Giai đoạn 1: Nạp Persona 360 & Kiểm tra Số dư nợ Tức thời" },
+    { "from": 415, "to": 765, "label": "Giai đoạn 2: Luồng Gọi điện Giục nợ (Thẩm định L6 Guardrail & Kết nối CTI)" },
+    { "from": 785, "to": 1035, "label": "Giai đoạn 3: Luồng Nhắn tin SMS Brandname / Zalo ZNS (Kèm VietQR)" }
+  ],
+  "messages": [
+    { "id": "m1", "from": "collector", "to": "workspace", "y": 170, "label": "1. Chọn hồ sơ từ Case Queue", "variant": "default" },
+    { "id": "m2", "from": "workspace", "to": "api", "y": 205, "label": "GET /api/cases/{id}/persona", "variant": "emphasis" },
+    { "id": "m3", "from": "api", "to": "core", "y": 240, "label": "get_customer_inflow_profile()", "variant": "default" },
+    { "id": "m4", "from": "core", "to": "api", "y": 275, "label": "Inflow, CASA & DSR profile", "variant": "return" },
+    { "id": "m5", "from": "workspace", "to": "api", "y": 310, "label": "POST /api/cases/{id}/balance-check", "variant": "emphasis" },
+    { "id": "m6", "from": "api", "to": "core", "y": 345, "label": "get_realtime_balance() (IF-CORE-04)", "variant": "security" },
+    { "id": "m7", "from": "core", "to": "api", "y": 380, "label": "Overdue confirmed (> 0đ & > 15m)", "variant": "return" },
+
+    { "id": "m8", "from": "collector", "to": "workspace", "y": 435, "label": "2. Bấm nút [GỌI ĐIỆN]", "variant": "emphasis" },
+    { "id": "m9", "from": "workspace", "to": "api", "y": 470, "label": "POST /api/cases/{id}/call-intent", "variant": "emphasis" },
+    { "id": "m10", "from": "api", "to": "guardrail", "y": 505, "label": "evaluate(G01, G02, G04, G05)", "variant": "security" },
+    { "id": "m11", "from": "guardrail", "to": "audit", "y": 540, "label": "Append block (SHA-256 chain)", "variant": "dashed" },
+    { "id": "m12", "from": "guardrail", "to": "api", "y": 575, "label": "ALLOW + Token ES256 (TTL 30m)", "variant": "return" },
+    { "id": "m13", "from": "api", "to": "workspace", "y": 610, "label": "200 OK (guardrail_token)", "variant": "return" },
+    { "id": "m14", "from": "workspace", "to": "channels", "y": 645, "label": "Kích hoạt Softphone quay số", "variant": "emphasis" },
+    { "id": "m15", "from": "channels", "to": "debtor", "y": 680, "label": "SIP Voice Call (07:00–21:00)", "variant": "emphasis" },
+    { "id": "m16", "from": "debtor", "to": "channels", "y": 715, "label": "Nghe máy & hẹn trả (PTP)", "variant": "return" },
+    { "id": "m17", "from": "workspace", "to": "api", "y": 750, "label": "POST /call-wrapup (PTP 5tr, ngày 10)", "variant": "emphasis" },
+
+    { "id": "m18", "from": "workspace", "to": "api", "y": 805, "label": "3. Gửi tin nhắc nợ kèm VietQR", "variant": "emphasis" },
+    { "id": "m19", "from": "api", "to": "guardrail", "y": 840, "label": "evaluate(G03 VietQR, G04 Cap)", "variant": "security" },
+    { "id": "m20", "from": "guardrail", "to": "api", "y": 875, "label": "ALLOW + Msg Token", "variant": "return" },
+    { "id": "m21", "from": "api", "to": "channels", "y": 910, "label": "send_sms / send_zns(token, qr)", "variant": "emphasis" },
+    { "id": "m22", "from": "channels", "to": "debtor", "y": 945, "label": "SMS Brandname / ZNS + VietQR link", "variant": "emphasis" },
+    { "id": "m23", "from": "api", "to": "audit", "y": 980, "label": "Log delivery & update case state", "variant": "dashed" },
+    { "id": "m24", "from": "api", "to": "workspace", "y": 1015, "label": "200 Sent (Case status: PTP_SCHEDULED)", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "workspace", "from": 170, "to": 1020, "type": "frontend" },
+    { "participant": "api", "from": 205, "to": 385, "type": "backend" },
+    { "participant": "core", "from": 240, "to": 280, "type": "backend" },
+    { "participant": "core", "from": 345, "to": 385, "type": "backend" },
+    { "participant": "api", "from": 470, "to": 615, "type": "backend" },
+    { "participant": "guardrail", "from": 505, "to": 580, "type": "security" },
+    { "participant": "audit", "from": 540, "to": 560, "type": "database" },
+    { "participant": "channels", "from": 645, "to": 720, "type": "backend" },
+    { "participant": "api", "from": 750, "to": 760, "type": "backend" },
+    { "participant": "api", "from": 805, "to": 1020, "type": "backend" },
+    { "participant": "guardrail", "from": 840, "to": 880, "type": "security" },
+    { "participant": "channels", "from": 910, "to": 950, "type": "backend" },
+    { "participant": "audit", "from": 980, "to": 1000, "type": "database" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Chống Đòi nợ Nhầm (Anti-False Delinquency)",
+      "items": [
+        "CoreBankingAdapter kiểm tra số dư tức thời và phát hiện thanh toán trong 15 phút qua",
+        "Nếu khách đã thanh toán, hệ thống tự động HỦY nhắc nợ và đổi trạng thái hồ sơ sang CURED"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "L6 Compliance Guardrail (Bất khả xâm phạm)",
+      "items": [
+        "Mọi tương tác Voice hay SMS đều phải xin Guardrail Token ES256 trước khi Softphone/Gateway được mở",
+        "Kiểm tra nghiêm ngặt: G01 Dư nợ thật, G02 Chỉ gọi người bảo lãnh từ LOS, G04 Giới hạn 3 lần/ngày, G05 Khung giờ 07:00–21:00"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Vòng lặp Khép kín (Closed-loop Execution)",
+      "items": [
+        "Cuộc gọi hoàn tất kích hoạt lưu cam kết PTP và tăng biến đếm tuân thủ",
+        "Tin nhắn SMS/ZNS gửi link VietQR động ghi nhận mã kiểm toán chuỗi Hash Chain bất biến phục vụ thanh tra NHNN"
+      ]
+    }
+  ]
+}

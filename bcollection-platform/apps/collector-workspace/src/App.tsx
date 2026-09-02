@@ -10,6 +10,7 @@ export const App: React.FC = () => {
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [personaData, setPersonaData] = useState<any>(null);
   const [loadingPersona, setLoadingPersona] = useState(false);
+  const [caseHistory, setCaseHistory] = useState<any[]>([]);
 
   // Softphone state
   const [callState, setCallState] = useState<'IDLE' | 'CALLING' | 'CONNECTED' | 'ENDED'>('IDLE');
@@ -47,6 +48,8 @@ export const App: React.FC = () => {
   const handleSelectCase = (caseItem: any) => {
     setSelectedCase(caseItem);
     setLoadingPersona(true);
+
+    // Nạp Persona 360
     fetch(`/api/cases/${caseItem.case_id}/persona`)
       .then((res) => res.json())
       .then((data) => {
@@ -57,6 +60,12 @@ export const App: React.FC = () => {
         console.error('Error fetching persona:', err);
         setLoadingPersona(false);
       });
+
+    // Nạp Lịch sử tương tác Case History
+    fetch(`/api/cases/${caseItem.case_id}/history`)
+      .then((res) => res.json())
+      .then((histData) => setCaseHistory(histData))
+      .catch((err) => console.error('Error fetching history:', err));
   };
 
   const handleStartCall = () => {
@@ -112,6 +121,10 @@ export const App: React.FC = () => {
         fetch('/api/cases')
           .then((res) => res.json())
           .then((data) => setCases(data));
+        // Refresh case history
+        fetch(`/api/cases/${selectedCase.case_id}/history`)
+          .then((res) => res.json())
+          .then((histData) => setCaseHistory(histData));
       });
   };
 
@@ -146,9 +159,10 @@ export const App: React.FC = () => {
           onSelectCase={handleSelectCase}
         />
 
-        {/* Right Column: Debtor 360 Persona Card */}
+        {/* Right Column: Debtor 360 Persona Card & Case History */}
         <PersonaCardView
           persona={personaData}
+          history={caseHistory}
           onOpenEnrichment={() => setIsEnrichmentOpen(true)}
         />
       </main>
@@ -157,6 +171,7 @@ export const App: React.FC = () => {
       <CallWrapupModal
         isOpen={isWrapupOpen}
         activeCase={selectedCase}
+        callDuration={callDuration}
         onClose={() => { setIsWrapupOpen(false); setCallState('IDLE'); }}
         onSubmit={handleSubmitWrapup}
       />

@@ -104,6 +104,46 @@ for idx, c in enumerate(raw_portfolio):
     c["status"] = "IN_TREATMENT" if c.get("dpd", 0) > 5 else "ASSIGNED"
     mock_cases_db[case_id] = c
 
+# CSDL lưu trữ lịch sử tương tác cuộc gọi, tin nhắn của từng Case (Case History DB)
+case_interactions_db: Dict[str, List[Dict[str, Any]]] = {}
+for case_id, c in mock_cases_db.items():
+    dpd = c.get("dpd", 0)
+    if dpd > 5:
+        days_ago_1 = datetime.now() - timedelta(days=1, hours=2, minutes=15)
+        days_ago_2 = datetime.now() - timedelta(days=3, hours=4, minutes=30)
+        case_interactions_db[case_id] = [
+            {
+                "id": f"INT-{case_id}-02",
+                "case_id": case_id,
+                "channel": "VOICE",
+                "timestamp": days_ago_1.strftime("%d/%m/%Y %H:%M"),
+                "collector_name": "Lê Văn Chuyên (CB-8842)",
+                "outcome": "BUSY_NO_ANSWER",
+                "outcome_label": "Không nghe máy",
+                "ptp_amount": None,
+                "ptp_date": None,
+                "notes": "Chuyên viên gọi điện theo danh mục phân bổ, đổ chuông 35s không ai nhấc máy.",
+                "guardrail_token": "eyJhbGciOiJFUzI1NiJ9.g05_token_audit_ok",
+                "sentiment": "TRUNG TÍNH"
+            },
+            {
+                "id": f"INT-{case_id}-01",
+                "case_id": case_id,
+                "channel": "SMS",
+                "timestamp": days_ago_2.strftime("%d/%m/%Y %H:%M"),
+                "collector_name": "Hệ thống Tự động (Batch)",
+                "outcome": "SMS_SENT",
+                "outcome_label": "SMS VietQR đã gửi",
+                "ptp_amount": None,
+                "ptp_date": None,
+                "notes": f"Gửi tin nhắn SMS Brandname BIDV kèm link VietQR nợ kỳ {c['overdue_amount']:,.0f} đ.",
+                "guardrail_token": "eyJhbGciOiJFUzI1NiJ9.g03_vietqr_audit_ok",
+                "sentiment": "TÍCH CỰC"
+            }
+        ]
+    else:
+        case_interactions_db[case_id] = []
+
 
 @app.get("/health")
 def health():
@@ -200,12 +240,45 @@ def submit_call_wrapup(case_id: str, payload: CallWrapupRequest):
     cif = case["debtor_cif"]
     cnt_repo.increment_attempt(loan_id, cif, "VOICE")
 
+    # Ghi nhận vào Case History DB
+    outcome_label = (
+        "Hẹn ngày trả (PTP Agreed)" if payload.outcome == "PTP_AGREED"
+        else ("Từ chối thanh toán" if payload.outcome == "REFUSED" else "Không nghe máy")
+    )
+    sentiment = (
+        "TÍCH CỰC" if payload.outcome == "PTP_AGREED"
+        else ("TIÊU CỰC" if payload.outcome == "REFUSED" else "TRUNG TÍNH")
+    )
+
+    interaction_item = {
+        "id": f"INT-{case_id}-{int(datetime.now().timestamp())}",
+        "case_id": case_id,
+        "channel": "VOICE",
+        "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "collector_name": "Lê Văn Chuyên (CB-8842)",
+        "outcome": payload.outcome,
+        "outcome_label": outcome_label,
+        "ptp_amount": payload.ptp_amount,
+        "ptp_date": payload.ptp_date,
+        "notes": payload.notes or "Hoàn tất cuộc gọi đàm phán nhắc nợ qua Softphone.",
+        "guardrail_token": (payload.guardrail_token[:22] + "...") if payload.guardrail_token else "N/A",
+        "sentiment": sentiment
+    }
+    case_interactions_db.setdefault(case_id, []).insert(0, interaction_item)
+
     return {
         "status": "SAVED",
         "case_id": case_id,
         "new_case_status": case["status"],
-        "committed": True
+        "committed": True,
+        "interaction_id": interaction_item["id"]
     }
+
+
+@app.get("/api/cases/{case_id}/history", response_model=List[Dict[str, Any]])
+def get_case_history(case_id: str):
+    """Lấy danh sách toàn bộ lịch sử tương tác (Case History) của hồ sơ"""
+    return case_interactions_db.get(case_id, [])
 
 
 @app.post("/api/cases/{case_id}/balance-check")
@@ -235,4 +308,104 @@ def check_case_balance_realtime(case_id: str):
         "message": check_res["message"],
         "updated_case_status": case["status"]
     }
+
+
+class CallTranscribeRequest(BaseModel):
+    call_duration_seconds: int = 45
+    channel: str = "VOICE"
+
+
+@app.post("/api/cases/{case_id}/call-transcribe")
+def transcribe_and_extract_call(case_id: str, payload: CallTranscribeRequest):
+    """
+    Phân hệ Speech AI bóc tách tự động cuộc gọi:
+    1. Nhận diện giọng nói đa kênh (ASR Whisper)
+    2. Trích xuất thực thể cam kết PTP, ngày hẹn trả và lý do nợ (NLP Qwen-2.5-7B)
+    3. Phân tích sắc thái cảm xúc (Sentiment Analysis)
+    4. Kiểm soát tuân thủ L6 Guardrail tự động (Compliance Check)
+    """
+    case = mock_cases_db.get(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    dpd = case.get("dpd", 5)
+    full_name = case.get("full_name", "Khách hàng")
+    loan_id = case.get("loan_id", "LOAN-UNKNOWN")
+    overdue_amt = float(case.get("overdue_amount", 5_000_000.0))
+
+    if dpd <= 10:
+        transcript = [
+            {"speaker": "RM", "text": f"Dạ em chào anh/chị {full_name}, em là chuyên viên quản lý nợ BIDV liên hệ về hợp đồng {loan_id} đang quá hạn {dpd} ngày với số tiền {overdue_amt:,.0f} VNĐ ạ."},
+            {"speaker": "CUSTOMER", "text": f"À chào em, mấy hôm vừa rồi anh đi công tác xa nên quên béng mất. Đến ngày 10 tới anh nhận lương sẽ chuyển khoản đủ {overdue_amt:,.0f} đồng qua SmartBanking nhé."},
+            {"speaker": "RM", "text": f"Dạ vâng em đã ghi nhận lịch hẹn thanh toán vào ngày 10 tới. Em cảm ơn anh/chị nhiều ạ."}
+        ]
+        outcome = "PTP_AGREED"
+        ptp_amt = overdue_amt
+        ptp_date = "2026-09-10"
+        confidence = 0.98
+        sentiment_label = "TÍCH CỰC"
+        sentiment_score = 0.48
+        sentiment_tone = "Hợp tác cao • Tôn trọng"
+        root_cause = "CASHFLOW_TIMING"
+        auto_notes = f"Khách xác nhận bận công tác quên lịch nộp, cam kết chuyển khoản đủ {overdue_amt:,.0f} VNĐ qua SmartBanking vào ngày nhận lương 10/09."
+
+    elif 11 <= dpd <= 20:
+        half_amt = round(overdue_amt * 0.5, -4)
+        transcript = [
+            {"speaker": "RM", "text": f"Chào anh/chị {full_name}, BIDV liên hệ về khoản vay {loan_id} đã quá hạn {dpd} ngày. Em gọi để trao đổi phương án hỗ trợ anh/chị thanh toán kỳ nợ này ạ."},
+            {"speaker": "CUSTOMER", "text": f"Đợt này kinh doanh hàng họ chậm thu hồi tiền quá em ơi. Đến ngày 15 này anh gom được trước một nửa khoảng {half_amt:,.0f} đồng nộp trước được không em?"},
+            {"speaker": "RM", "text": f"Dạ được anh ạ, em ghi nhận cam kết nộp trước {half_amt:,.0f} đồng vào ngày 15/09, phần còn lại chi nhánh sẽ hướng dẫn cơ cấu giãn tiếp ạ."}
+        ]
+        outcome = "PTP_AGREED"
+        ptp_amt = half_amt
+        ptp_date = "2026-09-15"
+        confidence = 0.93
+        sentiment_label = "TRUNG TÍNH"
+        sentiment_score = 0.05
+        sentiment_tone = "Khó khăn dòng tiền • Thiện chí đàm phán"
+        root_cause = "BUSINESS_DOWNTURN"
+        auto_notes = f"Khách kinh doanh chậm thu hồi công nợ, cam kết thanh toán trước 50% ({half_amt:,.0f} VNĐ) vào ngày 15/09."
+
+    else:
+        transcript = [
+            {"speaker": "RM", "text": f"Chào anh/chị {full_name}, BIDV thông báo khoản vay {loan_id} đã quá hạn {dpd} ngày và có nguy cơ chuyển nhóm nợ xấu trên CIC toàn quốc ạ."},
+            {"speaker": "CUSTOMER", "text": "Tôi đã bảo đợt này kẹt tiền không xoay kịp rồi mà cứ gọi giục suốt thế! Để cuối tháng xem thế nào rồi tính!"},
+            {"speaker": "RM", "text": "Dạ ngân hàng rất thấu hiểu khó khăn của anh/chị, em xin phép lưu nhận thông tin và gửi văn bản hỗ trợ qua Zalo ạ."}
+        ]
+        outcome = "REFUSED"
+        ptp_amt = None
+        ptp_date = None
+        confidence = 0.91
+        sentiment_label = "TIÊU CỰC"
+        sentiment_score = -0.65
+        sentiment_tone = "Bực bội • Né tránh nghĩa vụ"
+        root_cause = "WILFUL_DEFAULT"
+        auto_notes = "Khách hàng từ chối cam kết ngày trả cụ thể, phản ứng bực bội khi bị nhắc nợ. Đề xuất chuyển biện pháp cảnh báo văn bản."
+
+    return {
+        "case_id": case_id,
+        "call_duration_seconds": payload.call_duration_seconds,
+        "transcript": transcript,
+        "extracted_outcome": outcome,
+        "extracted_ptp_amount": ptp_amt,
+        "extracted_ptp_date": ptp_date,
+        "confidence": confidence,
+        "detected_root_cause": root_cause,
+        "sentiment": {
+            "label": sentiment_label,
+            "score": sentiment_score,
+            "tone": sentiment_tone
+        },
+        "compliance_audit": {
+            "status": "PASSED",
+            "checks": [
+                "Xưng danh chuyên viên BIDV chuẩn mực",
+                "Tuyệt đối không dùng lời lẽ đe dọa hoặc từ cấm",
+                "Không tiết lộ thông tin cho người thứ ba",
+                "Khung giờ liên hệ hợp lệ (07:00–21:00)"
+            ]
+        },
+        "auto_notes": auto_notes
+    }
+
 
