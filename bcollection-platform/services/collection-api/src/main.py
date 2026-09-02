@@ -95,6 +95,17 @@ def get_database_schema():
     return get_db_schema_info()
 
 
+@app.get("/api/rules/root-cause/dmn")
+def get_root_cause_dmn_rules():
+    """
+    Xem Bảng quyết định Camunda DMN 1.3 (Decision Table) cho Root Cause Engine.
+    Được nạp trực tiếp từ file rules/root_cause_rules.dmn.
+    Hỗ trợ Hot-Reload: sửa file XML là cập nhật ngay lập tức không cần restart.
+    """
+    from dmn_engine import get_dmn_engine
+    return get_dmn_engine().get_rules_summary()
+
+
 @app.get("/api/cases", response_model=List[Dict[str, Any]])
 def get_case_queue():
     """Lấy danh sách hồ sơ nợ B1 từ SQLite DB"""
