@@ -2,14 +2,17 @@ import random
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
-def generate_synthetic_delinquent_cases(num_cases: int = 100) -> List[Dict[str, Any]]:
+def generate_synthetic_delinquent_cases(num_cases: int = 500, seed: int = 42) -> List[Dict[str, Any]]:
     """
-    Sinh dữ liệu tổng hợp (Synthetic Data) giả lập cho môi trường DEV.
+    Sinh dữ liệu tổng hợp (Synthetic Data) giả lập chuẩn cho môi trường DEV/UAT.
+    Hỗ trợ sinh 500+ hồ sơ nợ B1 đa dạng, chuẩn hoá format ngân hàng BIDV.
     Tuyệt đối không chứa PII thật.
     """
-    first_names = ["NGUYỄN", "TRẦN", "LÊ", "PHẠM", "HOÀNG", "HUỲNH", "PHAN", "VŨ", "VÕ", "ĐẶNG"]
-    mid_names = ["VĂN", "THỊ", "HỮU", "ĐỨC", "MINH", "QUANG", "ANH", "TUẤN", "NGỌC", "THU"]
-    last_names = ["HẢI", "NAM", "LONG", "PHÚC", "HÀ", "LINH", "TRANG", "DŨNG", "TUẤN", "SƠN"]
+    rng = random.Random(seed)
+    
+    first_names = ["NGUYỄN", "TRẦN", "LÊ", "PHẠM", "HOÀNG", "HUỲNH", "PHAN", "VŨ", "VÕ", "ĐẶNG", "BÙI", "ĐỖ", "HỒ", "NGÔ", "DƯƠNG"]
+    mid_names = ["VĂN", "THỊ", "HỮU", "ĐỨC", "MINH", "QUANG", "ANH", "TUẤN", "NGỌC", "THU", "KIM", "GIA", "BẢO", "XUÂN", "TIẾN"]
+    last_names = ["HẢI", "NAM", "LONG", "PHÚC", "HÀ", "LINH", "TRANG", "DŨNG", "TUẤN", "SƠN", "KHÁNH", "HUY", "TÙNG", "THẢO", "LAN", "HƯƠNG", "CHI", "PHƯỢNG", "BÌNH", "VIỆT"]
     products = ["CREDIT_CARD", "UNSECURED_LOAN", "AUTO_LOAN", "MORTGAGE"]
     
     cases = []
@@ -17,14 +20,27 @@ def generate_synthetic_delinquent_cases(num_cases: int = 100) -> List[Dict[str, 
     
     for i in range(1, num_cases + 1):
         cif = f"CIF{100000 + i:06d}"
-        full_name = f"{random.choice(first_names)} {random.choice(mid_names)} {random.choice(last_names)}"
-        phone = f"+849{random.randint(10000000, 99999999)}"
-        product = random.choice(products)
-        dpd = random.randint(1, 29) # Nhóm B1
+        full_name = f"{rng.choice(first_names)} {rng.choice(mid_names)} {rng.choice(last_names)}"
+        phone = f"+849{rng.randint(10000000, 99999999)}"
+        product = rng.choice(products)
+        dpd = rng.randint(1, 29)  # Nhóm B1 (1 - 29 ngày)
         
-        principal = round(random.uniform(5_000_000, 150_000_000), -4)
-        interest = round(principal * 0.02 * (dpd / 30.0), -3)
-        overdue_amt = principal if product == "CREDIT_CARD" else round(principal * 0.1, -4) + interest
+        if product == "CREDIT_CARD":
+            principal = round(rng.uniform(5_000_000, 60_000_000), -4)
+            overdue_amt = round(rng.uniform(1_500_000, principal * 0.5), -4)
+            interest = round(overdue_amt * 0.05, -3)
+        elif product == "UNSECURED_LOAN":
+            principal = round(rng.uniform(15_000_000, 100_000_000), -4)
+            overdue_amt = round(rng.uniform(2_000_000, 15_000_000), -4)
+            interest = round(overdue_amt * 0.03, -3)
+        elif product == "AUTO_LOAN":
+            principal = round(rng.uniform(200_000_000, 650_000_000), -5)
+            overdue_amt = round(rng.uniform(8_000_000, 35_000_000), -4)
+            interest = round(overdue_amt * 0.02, -3)
+        else:  # MORTGAGE
+            principal = round(rng.uniform(500_000_000, 2_500_000_000), -6)
+            overdue_amt = round(rng.uniform(12_000_000, 75_000_000), -4)
+            interest = round(overdue_amt * 0.02, -3)
         
         cases.append({
             "case_id": f"CASE-2026-{10000 + i}",

@@ -14,6 +14,8 @@ export const CaseQueueTable: React.FC<CaseQueueTableProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterArm, setFilterArm] = useState<'ALL' | 'TREATED' | 'CONTROL'>('ALL');
+  const [filterProduct, setFilterProduct] = useState<string>('ALL');
+  const [filterDpd, setFilterDpd] = useState<string>('ALL');
 
   const filteredCases = cases.filter((c) => {
     const matchesSearch =
@@ -21,7 +23,14 @@ export const CaseQueueTable: React.FC<CaseQueueTableProps> = ({
       c.debtor_cif.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.phone_e164.includes(searchTerm);
     const matchesArm = filterArm === 'ALL' || c.experiment_arm === filterArm;
-    return matchesSearch && matchesArm;
+    const matchesProduct = filterProduct === 'ALL' || c.product_code === filterProduct;
+    const matchesDpd =
+      filterDpd === 'ALL' ||
+      (filterDpd === 'LOW' && c.dpd <= 10) ||
+      (filterDpd === 'MID' && c.dpd > 10 && c.dpd <= 20) ||
+      (filterDpd === 'HIGH' && c.dpd > 20);
+
+    return matchesSearch && matchesArm && matchesProduct && matchesDpd;
   });
 
   const formatVND = (amount: number) => {
@@ -45,50 +54,102 @@ export const CaseQueueTable: React.FC<CaseQueueTableProps> = ({
       overflow: 'hidden'
     }}>
       {/* Header & Search */}
-      <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <div style={{
-          position: 'relative',
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <Search size={16} style={{ position: 'absolute', left: '12px', color: 'var(--text-sub)' }} />
-          <input
-            type="text"
-            placeholder="Tìm theo Tên, CIF hoặc Số ĐT..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px 8px 36px',
-              backgroundColor: 'var(--bg-main)',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              color: 'var(--text-main)',
-              fontSize: '13px',
-              outline: 'none'
-            }}
-          />
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>HÀNG ĐỢI NỢ B1 TRONG NGÀY</span>
+            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', backgroundColor: 'var(--bg-main)', color: 'var(--accent)' }}>
+              {filteredCases.length} / {cases.length} hồ sơ
+            </span>
+          </div>
         </div>
 
-        {/* Experiment Filter */}
-        <select
-          value={filterArm}
-          onChange={(e: any) => setFilterArm(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            backgroundColor: 'var(--bg-main)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            color: 'var(--text-main)',
-            fontSize: '13px',
-            outline: 'none'
-          }}
-        >
-          <option value="ALL">Tất cả ({cases.length})</option>
-          <option value="TREATED">Treatment 90%</option>
-          <option value="CONTROL">Holdout 10%</option>
-        </select>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{
+            position: 'relative',
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <Search size={15} style={{ position: 'absolute', left: '10px', color: 'var(--text-sub)' }} />
+            <input
+              type="text"
+              placeholder="Tìm theo Tên, CIF hoặc SĐT..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '6px 10px 6px 32px',
+                backgroundColor: 'var(--bg-main)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                color: 'var(--text-main)',
+                fontSize: '12px',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          {/* Product Filter */}
+          <select
+            value={filterProduct}
+            onChange={(e) => setFilterProduct(e.target.value)}
+            style={{
+              padding: '6px 8px',
+              backgroundColor: 'var(--bg-main)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              color: 'var(--text-main)',
+              fontSize: '12px',
+              outline: 'none'
+            }}
+          >
+            <option value="ALL">Mọi sản phẩm</option>
+            <option value="CREDIT_CARD">Thẻ TD</option>
+            <option value="UNSECURED_LOAN">Tín chấp</option>
+            <option value="AUTO_LOAN">Vay xe</option>
+            <option value="MORTGAGE">Thế chấp</option>
+          </select>
+
+          {/* DPD Filter */}
+          <select
+            value={filterDpd}
+            onChange={(e) => setFilterDpd(e.target.value)}
+            style={{
+              padding: '6px 8px',
+              backgroundColor: 'var(--bg-main)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              color: 'var(--text-main)',
+              fontSize: '12px',
+              outline: 'none'
+            }}
+          >
+            <option value="ALL">Mọi DPD</option>
+            <option value="LOW">DPD 1–10</option>
+            <option value="MID">DPD 11–20</option>
+            <option value="HIGH">DPD 21–29</option>
+          </select>
+
+          {/* Experiment Filter */}
+          <select
+            value={filterArm}
+            onChange={(e: any) => setFilterArm(e.target.value)}
+            style={{
+              padding: '6px 8px',
+              backgroundColor: 'var(--bg-main)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              color: 'var(--text-main)',
+              fontSize: '12px',
+              outline: 'none'
+            }}
+          >
+            <option value="ALL">Toàn bộ</option>
+            <option value="TREATED">Treatment (90%)</option>
+            <option value="CONTROL">Holdout (10%)</option>
+          </select>
+        </div>
       </div>
 
       {/* Table List */}

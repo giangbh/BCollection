@@ -1,48 +1,39 @@
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
-
-@dataclass
-class PartyObligationDTO:
-    loan_id: str
-    party_id: str
-    party_name: str
-    party_type: str        # PERSON / ORG
-    edge_type: str         # BORROWED, GUARANTEES, CO_BORROWER_WITH, LEGAL_REP_OF
-    contact_eligible: str  # YES / NO / CONDITIONAL
-    phone_e164: str
-    source_system: str     # LOS, RLOS
-
-
-class LOSAdapter(ABC):
-    """
-    Interface tích hợp hệ thống Khởi tạo Khoản vay (LOS / RLOS / CLOS) để lấy danh sách người có nghĩa vụ (IF-LOS-02).
-    """
-    @abstractmethod
-    def get_loan_party_obligations(self, loan_id: str) -> List[PartyObligationDTO]:
-        pass
-
+try:
+    from .los.adapter import (
+        LOSAdapter,
+        PartyObligationDTO,
+        CollateralDTO
+    )
+    from .los.client import LOSApiClient
+    from .los.mock_client import MockLOSApiClient
+    from .los.http_client import HttpLOSApiClient
+except ImportError:
+    from los.adapter import (
+        LOSAdapter,
+        PartyObligationDTO,
+        CollateralDTO
+    )
+    from los.client import LOSApiClient
+    from los.mock_client import MockLOSApiClient
+    from los.http_client import HttpLOSApiClient
 
 class MockLOSAdapter(LOSAdapter):
-    """Mock Service LOS phục vụ DEV/UAT"""
-    def __init__(self):
-        self._mock_data: Dict[str, List[PartyObligationDTO]] = {}
+    """
+    Tiện ích khởi tạo nhanh LOSAdapter chạy trên Mock API Client phục vụ Unit Test / DEV.
+    Vẫn đảm bảo sử dụng cùng một Adapter logic duy nhất.
+    """
+    def __init__(self, mock_client: MockLOSApiClient = None):
+        super().__init__(api_client=mock_client or MockLOSApiClient())
 
     def add_mock_obligation(self, dto: PartyObligationDTO):
-        if dto.loan_id not in self._mock_data:
-            self._mock_data[dto.loan_id] = []
-        self._mock_data[dto.loan_id].append(dto)
-
-    def get_loan_party_obligations(self, loan_id: str) -> List[PartyObligationDTO]:
-        return self._mock_data.get(loan_id, [
-            PartyObligationDTO(
-                loan_id=loan_id,
-                party_id="CIF_MOCK_BORROWER",
-                party_name="NGUYỄN VĂN AN",
-                party_type="PERSON",
-                edge_type="BORROWED",
-                contact_eligible="YES",
-                phone_e164="+84912345678",
-                source_system="LOS"
-            )
-        ])
+        if isinstance(self.client, MockLOSApiClient):
+            self.client.add_mock_party_obligation(dto.loan_id, {
+                "loan_id": dto.loan_id,
+                "party_id": dto.party_id,
+                "party_name": dto.party_name,
+                "party_type": dto.party_type,
+                "edge_type": dto.edge_type,
+                "contact_eligible": dto.contact_eligible,
+                "phone_e164": dto.phone_e164,
+                "source_system": dto.source_system
+            })
