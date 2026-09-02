@@ -290,6 +290,84 @@ export const PersonaCardView: React.FC<PersonaCardViewProps> = ({
             </div>
           </div>
 
+          {/* CBR 192D VECTOR MATCH: TOP 5 CASE REFERENCE THỰC TẾ TỪ 1,000 CASES SQLITE */}
+          {persona.similar_references && persona.similar_references.length > 0 && (
+            <div style={{
+              backgroundColor: 'var(--bg-main)',
+              borderRadius: '10px',
+              border: '1px solid rgba(52, 211, 153, 0.3)',
+              padding: '14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  🧬 5 HỒ SƠ TƯƠNG ĐỒNG NHẤT (CBR VECTOR SEARCH 192D)
+                </span>
+                <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', backgroundColor: 'rgba(52, 211, 153, 0.15)', color: '#34d399', fontWeight: 600 }}>
+                  So sánh từ 1,000 Cases SQLite
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {persona.similar_references.map((refItem: any, idx: number) => (
+                  <div
+                    key={refItem.reference_id || idx}
+                    style={{
+                      backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      padding: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#34d399',
+                          backgroundColor: 'rgba(52, 211, 153, 0.2)',
+                          padding: '2px 6px',
+                          borderRadius: '4px'
+                        }}>
+                          🎯 Khớp {refItem.similarity_pct}
+                        </span>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                          {refItem.reference_id}
+                        </span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-sub)' }}>
+                          • {refItem.product_code} • DPD {refItem.dpd_intake}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '11px', color: '#fbbf24', fontWeight: 600 }}>
+                        Thu hồi: {Math.round(refItem.recovery_rate * 100)}% ({refItem.days_to_resolve} ngày)
+                      </span>
+                    </div>
+
+                    <p style={{ fontSize: '12px', color: 'var(--text-main)', margin: '2px 0 0 0', lineHeight: 1.4 }}>
+                      {refItem.resolution_playbook}
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--text-sub)' }}>
+                        Nguyên nhân: <strong>{refItem.root_cause}</strong>
+                      </span>
+                      {refItem.effective_levers?.slice(0, 2).map((l: string, lIdx: number) => (
+                        <span key={lIdx} style={{ fontSize: '10px', color: '#94a3b8', backgroundColor: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '3px' }}>
+                          +{l}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Mini preview for history */}
           {history.length > 0 && (
             <div 

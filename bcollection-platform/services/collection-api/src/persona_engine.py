@@ -324,27 +324,20 @@ class DynamicDebtorPersonaEngine:
             paying_other_banks_while_overdue=cic_report.paying_other_banks_while_overdue
         )
 
-        # 7. Đề xuất Kịch bản Tối ưu (Playbook Recommendation)
-        if segment_cell == "S1":
-            action_desc = "Gửi tin nhắn Zalo ZNS kèm link VietQR động hoặc nhắc nhẹ, hoãn gọi điện 3 ngày."
-            top_levers = ["CIC_CREDIT_RECORD", "EARLY_SETTLEMENT_DISCOUNT"]
-            best_ch = "ZALO" if self_cure_pred.self_cure_propensity > 0.7 else "VOICE"
-            success_est = f"{int(self_cure_pred.self_cure_propensity*100)}% (Tự thanh toán trong 48h)"
-        elif segment_cell == "S2":
-            action_desc = f"Gọi điện thoại chốt cam kết hẹn trả (PTP) đúng ngày nhận lương ({inflow_profile.salary_day_of_month})."
-            top_levers = ["CASH_FLOW_TIMING", "ACCRUING_PENALTY_COST"]
-            best_ch = "VOICE"
-            success_est = "84% (Đã chốt hẹn lương về)"
-        elif segment_cell == "S3":
-            action_desc = "Tư vấn chính sách miễn 30% lãi phạt nếu thanh toán tuần này hoặc cơ cấu giãn nợ."
-            top_levers = ["INTEREST_WAIVER_OFFER", "CIC_CREDIT_RECORD"]
-            best_ch = "VOICE"
-            success_est = "72% (Khi áp dụng miễn giảm lãi)"
-        else:
-            action_desc = "Cảnh báo nguy cơ nợ xấu CIC toàn quốc và khởi động thủ tục phát mại tài sản bảo đảm."
-            top_levers = ["COLLATERAL_ENFORCEMENT_RISK", "LITIGATION_COST_TIME"]
-            best_ch = "VOICE"
-            success_est = "45% (Cần đòn bẩy pháp lý mạnh)"
+        # 7. So sánh Thực tế với 1,000 Reference Cases trong CSDL SQLite qua Vector Nhúng 192 Chiều
+        from cbr_engine import find_top_similar_reference_cases, synthesize_playbook_from_references
+        
+        similar_cases = find_top_similar_reference_cases(
+            case=case,
+            root_cause=root_cause["primary"],
+            d1=ability_data["value"] / 100.0,
+            d2=willingness_data["value"] / 100.0,
+            d3=contactability_data["value"] / 100.0,
+            top_k=5
+        )
+        cbr_playbook = synthesize_playbook_from_references(similar_cases)
+        cbr_playbook["best_channel"] = "ZALO" if self_cure_pred.self_cure_propensity > 0.7 else "VOICE"
+        cbr_playbook["best_time_window"] = best_time_pred.best_time_window
 
         # 8. Cảnh báo L6 Guardrail bắt buộc
         guarantor_note = f", Bên bảo lãnh ({case['guarantor_id']})" if case.get("guarantor_id") else ""
@@ -373,12 +366,7 @@ class DynamicDebtorPersonaEngine:
             "segment_cell": segment_cell,
             "segment_name": segment_name,
             "root_cause": root_cause,
-            "recommended_playbook": {
-                "best_channel": best_ch,
-                "best_time_window": best_time_pred.best_time_window,
-                "suggested_action": action_desc,
-                "top_levers": top_levers,
-                "success_rate_estimate": success_est
-            },
+            "recommended_playbook": cbr_playbook,
+            "similar_references": similar_cases,
             "mandatory_guardrail_notes": mandatory_guardrails
         }

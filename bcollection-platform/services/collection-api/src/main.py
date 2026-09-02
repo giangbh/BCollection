@@ -58,118 +58,88 @@ balance_checker = RealTimeBalanceCheckService(core_banking_adapter)
 
 # Khởi tạo Engine Tính toán Chân dung Persona 360 Động (AI + Formulas + Multi-adapter)
 from persona_engine import DynamicDebtorPersonaEngine
+from database import (
+    init_db, seed_cases_to_db, get_all_cases, get_case_by_id,
+    update_case_wrapup, get_case_history, get_db_schema_info, get_connection
+)
+
+# Khởi tạo Dynamic Persona Engine với các Adapter Hexagonal
 persona_engine = DynamicDebtorPersonaEngine(
     core_adapter=core_banking_adapter,
     los_adapter=los_adapter,
     cic_adapter=cic_adapter
 )
 
-# Nạp danh sách 500 hồ sơ nợ B1 chuẩn nghiệp vụ BIDV
-mock_cases_db: Dict[str, Dict[str, Any]] = {}
+# Nạp 500 hồ sơ synthetic vào CSDL SQLite
 raw_portfolio = generate_synthetic_delinquent_cases(num_cases=500, seed=42)
+holdout_mgr = HoldoutManager()
 
-for idx, c in enumerate(raw_portfolio):
-    case_id = c.get("case_id", f"CASE-2026-{10001 + idx}")
-    c["case_id"] = case_id
-    cif = c["debtor_cif"]
-    loan_id = c["loan_id"]
-    
-    # Đồng bộ vào MockCoreBankingApiClient nếu đang chạy mock client
+# Khởi tạo bảng CSDL SQLite và nạp 500 hồ sơ + lịch sử mẫu
+init_db()
+seed_cases_to_db(raw_portfolio, holdout_mgr, obl_repo)
+
+# Đồng bộ dữ liệu vào MockCoreBankingApiClient nếu cần
+for c in raw_portfolio:
     if hasattr(core_banking_adapter.client, "set_mock_loan"):
         core_banking_adapter.client.set_mock_loan(c)
-    
-    # Đăng ký quan hệ nghĩa vụ vào LOSAdapter và Obligation Repo
-    obl_repo.add_obligation(
-        loan_id=loan_id,
-        party_id=cif,
-        edge_type="BORROWED",
-        contact_eligible="YES"
-    )
-    # 30% hồ sơ có thêm người bảo lãnh hợp pháp
-    if idx % 3 == 0:
-        guarantor_id = f"{cif}_G1"
-        obl_repo.add_obligation(
-            loan_id=loan_id,
-            party_id=guarantor_id,
-            edge_type="GUARANTEES",
-            contact_eligible="YES"
-        )
-        c["guarantor_id"] = guarantor_id
-    else:
-        c["guarantor_id"] = None
-
-    # Gán nhóm thử nghiệm Holdout 10% vs Treatment 90%
-    arm = holdout_mgr.assign_arm(cif)
-    c["experiment_arm"] = arm
-    c["status"] = "IN_TREATMENT" if c.get("dpd", 0) > 5 else "ASSIGNED"
-    mock_cases_db[case_id] = c
-
-# CSDL lưu trữ lịch sử tương tác cuộc gọi, tin nhắn của từng Case (Case History DB)
-case_interactions_db: Dict[str, List[Dict[str, Any]]] = {}
-for case_id, c in mock_cases_db.items():
-    dpd = c.get("dpd", 0)
-    if dpd > 5:
-        days_ago_1 = datetime.now() - timedelta(days=1, hours=2, minutes=15)
-        days_ago_2 = datetime.now() - timedelta(days=3, hours=4, minutes=30)
-        case_interactions_db[case_id] = [
-            {
-                "id": f"INT-{case_id}-02",
-                "case_id": case_id,
-                "channel": "VOICE",
-                "timestamp": days_ago_1.strftime("%d/%m/%Y %H:%M"),
-                "collector_name": "Lê Văn Chuyên (CB-8842)",
-                "outcome": "BUSY_NO_ANSWER",
-                "outcome_label": "Không nghe máy",
-                "ptp_amount": None,
-                "ptp_date": None,
-                "notes": "Chuyên viên gọi điện theo danh mục phân bổ, đổ chuông 35s không ai nhấc máy.",
-                "guardrail_token": "eyJhbGciOiJFUzI1NiJ9.g05_token_audit_ok",
-                "sentiment": "TRUNG TÍNH"
-            },
-            {
-                "id": f"INT-{case_id}-01",
-                "case_id": case_id,
-                "channel": "SMS",
-                "timestamp": days_ago_2.strftime("%d/%m/%Y %H:%M"),
-                "collector_name": "Hệ thống Tự động (Batch)",
-                "outcome": "SMS_SENT",
-                "outcome_label": "SMS VietQR đã gửi",
-                "ptp_amount": None,
-                "ptp_date": None,
-                "notes": f"Gửi tin nhắn SMS Brandname BIDV kèm link VietQR nợ kỳ {c['overdue_amount']:,.0f} đ.",
-                "guardrail_token": "eyJhbGciOiJFUzI1NiJ9.g03_vietqr_audit_ok",
-                "sentiment": "TÍCH CỰC"
-            }
-        ]
-    else:
-        case_interactions_db[case_id] = []
 
 
 @app.get("/health")
 def health():
-    return {"status": "HEALTHY", "service": "bcollection-platform-api"}
+    return {"status": "HEALTHY", "service": "bcollection-platform-api", "database": "sqlite3"}
+
+
+@app.get("/api/db/schema")
+def get_database_schema():
+    """Xem cấu trúc DDL các bảng và thống kê bản ghi thực tế trong SQLite DB"""
+    return get_db_schema_info()
 
 
 @app.get("/api/cases", response_model=List[Dict[str, Any]])
 def get_case_queue():
-    """Lấy danh sách hồ sơ nợ B1 cần xử lý trong ngày"""
-    return list(mock_cases_db.values())
+    """Lấy danh sách hồ sơ nợ B1 từ SQLite DB"""
+    return get_all_cases()
 
 
 @app.get("/api/cases/{case_id}/persona")
 def get_persona_card(case_id: str):
     """
-    Lấy chi tiết Debtor Persona Card 7 trục phục vụ đọc trong 15 giây.
+    Lấy chi tiết Debtor Persona Card 7 trục từ SQLite DB.
     Tính toán động 100% qua DynamicDebtorPersonaEngine:
     - Công thức toán học D1 (Ability), D2 (Willingness), D3 (Contactability)
     - Tích hợp CoreBankingAdapter, LOSAdapter, CICAdapter
     - Mô hình AI ML01 Self-Cure và ML04 Best-Time-To-Contact
     - Bộ suy luận Nguyên nhân gốc (Root Cause Analyzer)
     """
-    case = mock_cases_db.get(case_id)
+    case = get_case_by_id(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     return persona_engine.generate_persona(case)
+
+
+@app.get("/api/cases/{case_id}/similar-cases")
+def get_similar_cases(case_id: str, top_k: int = 5):
+    """
+    Thực hiện so sánh Cosine Similarity thực tế trên không gian Vector 192 Chiều
+    với toàn bộ 1,000 hồ sơ tham chiếu (CBR Reference Cases) trong CSDL SQLite.
+    Trả về Top-K hồ sơ khớp nhất kèm đòn bẩy và kịch bản đã xử lý thành công.
+    """
+    case = get_case_by_id(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    persona = persona_engine.generate_persona(case)
+    return {
+        "case_id": case_id,
+        "full_name": case["full_name"],
+        "product_code": case["product_code"],
+        "dpd": case["dpd"],
+        "root_cause": persona["root_cause"]["primary"],
+        "top_k": top_k,
+        "total_reference_pool": 1000,
+        "vector_dimensions": 192,
+        "matched_references": persona.get("similar_references", [])
+    }
 
 
 class CallIntentRequest(BaseModel):
@@ -183,7 +153,7 @@ def evaluate_call_intent(case_id: str, payload: CallIntentRequest):
     Chuyên viên bấm nút [GỌI ĐIỆN] trên Web UI.
     Hệ thống tự động gửi yêu cầu kiểm tra tới L6 Compliance Guardrail.
     """
-    case = mock_cases_db.get(case_id)
+    case = get_case_by_id(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
@@ -222,63 +192,33 @@ class CallWrapupRequest(BaseModel):
 
 @app.post("/api/cases/{case_id}/call-wrapup")
 def submit_call_wrapup(case_id: str, payload: CallWrapupRequest):
-    """Ghi nhận kết quả cuộc gọi và xác nhận commit Guardrail"""
-    case = mock_cases_db.get(case_id)
+    """Ghi nhận kết quả cuộc gọi và UPDATE trực tiếp vào CSDL SQLite"""
+    case = get_case_by_id(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-
-    # Cập nhật case
-    if payload.outcome == "PTP_AGREED":
-        case["status"] = "PTP_SCHEDULED"
-        case["ptp_amount"] = payload.ptp_amount
-        case["ptp_date"] = payload.ptp_date
-    elif payload.outcome == "REFUSED":
-        case["status"] = "IN_TREATMENT"
 
     # Tăng biến đếm qua Guardrail commit
     loan_id = case["loan_id"]
     cif = case["debtor_cif"]
     cnt_repo.increment_attempt(loan_id, cif, "VOICE")
 
-    # Ghi nhận vào Case History DB
-    outcome_label = (
-        "Hẹn ngày trả (PTP Agreed)" if payload.outcome == "PTP_AGREED"
-        else ("Từ chối thanh toán" if payload.outcome == "REFUSED" else "Không nghe máy")
+    # Thực hiện UPDATE bảng cases và INSERT bảng case_interactions trong SQLite
+    res = update_case_wrapup(
+        case_id=case_id,
+        outcome=payload.outcome,
+        ptp_amount=payload.ptp_amount,
+        ptp_date=payload.ptp_date,
+        notes=payload.notes,
+        guardrail_token=payload.guardrail_token
     )
-    sentiment = (
-        "TÍCH CỰC" if payload.outcome == "PTP_AGREED"
-        else ("TIÊU CỰC" if payload.outcome == "REFUSED" else "TRUNG TÍNH")
-    )
-
-    interaction_item = {
-        "id": f"INT-{case_id}-{int(datetime.now().timestamp())}",
-        "case_id": case_id,
-        "channel": "VOICE",
-        "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "collector_name": "Lê Văn Chuyên (CB-8842)",
-        "outcome": payload.outcome,
-        "outcome_label": outcome_label,
-        "ptp_amount": payload.ptp_amount,
-        "ptp_date": payload.ptp_date,
-        "notes": payload.notes or "Hoàn tất cuộc gọi đàm phán nhắc nợ qua Softphone.",
-        "guardrail_token": (payload.guardrail_token[:22] + "...") if payload.guardrail_token else "N/A",
-        "sentiment": sentiment
-    }
-    case_interactions_db.setdefault(case_id, []).insert(0, interaction_item)
-
-    return {
-        "status": "SAVED",
-        "case_id": case_id,
-        "new_case_status": case["status"],
-        "committed": True,
-        "interaction_id": interaction_item["id"]
-    }
+    res["committed"] = True
+    return res
 
 
 @app.get("/api/cases/{case_id}/history", response_model=List[Dict[str, Any]])
-def get_case_history(case_id: str):
-    """Lấy danh sách toàn bộ lịch sử tương tác (Case History) của hồ sơ"""
-    return case_interactions_db.get(case_id, [])
+def get_case_history_api(case_id: str):
+    """Lấy danh sách toàn bộ lịch sử tương tác (Case History) từ SQLite DB"""
+    return get_case_history(case_id)
 
 
 @app.post("/api/cases/{case_id}/balance-check")
@@ -286,9 +226,9 @@ def check_case_balance_realtime(case_id: str):
     """
     Kiểm tra số dư thời gian thực với Core Banking qua CoreBankingAdapter (IF-CORE-04).
     Chống đòi nợ oan: Nếu khách hàng đã trả tiền trong 15 phút hoặc nợ đã hết,
-    hệ thống tự động hủy nhắc nợ và đổi trạng thái hồ sơ sang CURED.
+    hệ thống tự động hủy nhắc nợ và đổi trạng thái hồ sơ sang CURED trong SQLite DB.
     """
-    case = mock_cases_db.get(case_id)
+    case = get_case_by_id(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
@@ -296,9 +236,13 @@ def check_case_balance_realtime(case_id: str):
     debtor_cif = case["debtor_cif"]
 
     check_res = balance_checker.verify_action_eligibility(loan_id, debtor_cif)
+    new_status = case["status"]
     if not check_res["can_proceed"]:
-        case["status"] = "CURED"
-        case["overdue_amount"] = 0.0
+        new_status = "CURED"
+        conn = get_connection()
+        conn.cursor().execute("UPDATE cases SET status = 'CURED', overdue_amount = 0 WHERE case_id = ?;", (case_id,))
+        conn.commit()
+        conn.close()
 
     return {
         "case_id": case_id,
@@ -306,7 +250,7 @@ def check_case_balance_realtime(case_id: str):
         "can_proceed": check_res["can_proceed"],
         "reason": check_res["reason"],
         "message": check_res["message"],
-        "updated_case_status": case["status"]
+        "updated_case_status": new_status
     }
 
 
@@ -324,7 +268,7 @@ def transcribe_and_extract_call(case_id: str, payload: CallTranscribeRequest):
     3. Phân tích sắc thái cảm xúc (Sentiment Analysis)
     4. Kiểm soát tuân thủ L6 Guardrail tự động (Compliance Check)
     """
-    case = mock_cases_db.get(case_id)
+    case = get_case_by_id(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
