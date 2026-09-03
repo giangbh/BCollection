@@ -251,6 +251,7 @@ Khi khách hàng rơi vào diện: điều trị bệnh hiểm nghèo, mất s�
 * **Post-Call Speech-to-Text & Auto-Summarization:** Trích xuất cam kết PTP, ngày thanh toán, lý do chậm trả và cập nhật thẳng vào Persona Card.
 * **100% Automated Call QA:** Quét toàn bộ nội dung cuộc gọi để phát hiện từ ngữ phản cảm, đe dọa hoặc sai quy trình nghiệp vụ.
 * **Collector Copilot (Constrained Generation):** Gợi ý kịch bản đàm phán dựa trên mẫu đã được Pháp chế phê duyệt sẵn, không sinh text tự do.
+* 📄 **Đặc tả Mở rộng Multi-Agent System (MAS):** Xem tài liệu thiết kế chi tiết 7 AI Agents và lộ trình 5 bước xây dựng tại [`B-Collection-Kien-Truc-Multi-Agent-System-Va-Lo-Trinh-Xay-Dung.md`](file:///Users/giangbh/BLending/BCollection/docs/B-Collection-Kien-Truc-Multi-Agent-System-Va-Lo-Trinh-Xay-Dung.md).
 
 ---
 
