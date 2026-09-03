@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "B.Collection — Luồng Xử lý Khi Click Chọn Hồ Sơ Nợ Trên UI",
+    "quality_profile": "showcase",
+    "viewBox": [950, 1140],
+    "animation": "trace",
+    "views": [
+      {
+        "id": "full-flow",
+        "label": "Toàn bộ luồng xử lý Case Detail",
+        "focus": ["collector", "workspace", "api", "database", "adapters", "ai_engine", "cbr_engine", "guardrail"],
+        "note": "Từ thao tác click của chuyên viên đến khi nạp đầy đủ thông tin Debtor 360, lịch sử và kịch bản lên màn hình."
+      },
+      {
+        "id": "persona-deep-dive",
+        "label": "Tính toán Debtor 360 & AI",
+        "focus": ["api", "adapters", "ai_engine"],
+        "note": "Truy vấn Core Banking/CIC/LOS, chạy mô hình AI ML01/ML04 và bảng luật Camunda DMN 1.3."
+      },
+      {
+        "id": "cbr-and-render",
+        "label": "CBR 192D & Render Giao diện",
+        "focus": ["workspace", "api", "cbr_engine", "guardrail"],
+        "note": "So khớp Cosine Similarity trên 1,000 case mẫu và kết xuất giao diện thẻ 360 độ."
+      }
+    ]
+  },
+  "participants": [
+    { "id": "collector", "type": "external", "label": "Chuyên viên", "sublabel": "Collector UI" },
+    { "id": "workspace", "type": "frontend", "label": "Workspace", "sublabel": "React App" },
+    { "id": "api", "type": "backend", "label": "Core API", "sublabel": "FastAPI" },
+    { "id": "database", "type": "database", "label": "SQLite DB", "sublabel": "Cases & Hist" },
+    { "id": "adapters", "type": "backend", "label": "Adapters", "sublabel": "Core/LOS/CIC" },
+    { "id": "ai_engine", "type": "backend", "label": "AI & DMN", "sublabel": "ML & Camunda" },
+    { "id": "cbr_engine", "type": "database", "label": "CBR Pool", "sublabel": "1,000 Cases 192D" },
+    { "id": "guardrail", "type": "security", "label": "Guardrail L6", "sublabel": "Policy Rules" }
+  ],
+  "segments": [
+    { "from": 145, "to": 395, "label": "Phần 1: Click Case & Truy vấn Lịch sử Tương tác (Case History)" },
+    { "from": 415, "to": 765, "label": "Phần 2: Nạp Chân dung Debtor 360 (Multi-Adapters & AI / DMN Inference)" },
+    { "from": 785, "to": 1035, "label": "Phần 3: So khớp CBR Vector 192D, Guardrail Preview & Render Màn hình" }
+  ],
+  "messages": [
+    { "id": "m1", "from": "collector", "to": "workspace", "y": 170, "label": "1. Click chọn hồ sơ nợ trên bảng Queue", "variant": "default" },
+    { "id": "m2", "from": "workspace", "to": "collector", "y": 205, "label": "Hiển thị Header hồ sơ & bật Skeleton loading", "variant": "return" },
+    { "id": "m3", "from": "workspace", "to": "api", "y": 240, "label": "GET /api/cases/{id}/history", "variant": "emphasis" },
+    { "id": "m4", "from": "api", "to": "database", "y": 275, "label": "SELECT * FROM case_interactions WHERE case_id=?", "variant": "default" },
+    { "id": "m5", "from": "database", "to": "api", "y": 310, "label": "Timeline cuộc gọi, tin nhắn & cam kết PTP", "variant": "return" },
+    { "id": "m6", "from": "api", "to": "workspace", "y": 345, "label": "200 OK (Danh sách interaction history)", "variant": "return" },
+
+    { "id": "m7", "from": "workspace", "to": "api", "y": 435, "label": "GET /api/cases/{id}/persona", "variant": "emphasis" },
+    { "id": "m8", "from": "api", "to": "database", "y": 470, "label": "SELECT * FROM cases WHERE case_id=?", "variant": "default" },
+    { "id": "m9", "from": "database", "to": "api", "y": 505, "label": "Snapshot nợ (DPD, Dư nợ, CIF, Mã SP, TSBĐ)", "variant": "return" },
+    { "id": "m10", "from": "api", "to": "adapters", "y": 540, "label": "get_customer_inflow_profile() [Core Banking]", "variant": "default" },
+    { "id": "m11", "from": "api", "to": "adapters", "y": 575, "label": "get_credit_report() & get_loan_collateral() [CIC/LOS]", "variant": "default" },
+    { "id": "m12", "from": "adapters", "to": "api", "y": 610, "label": "Dòng tiền CASA, DSR, nợ TCTD khác & LTV", "variant": "return" },
+    { "id": "m13", "from": "api", "to": "ai_engine", "y": 645, "label": "evaluate_case() [Mô hình AI ML01 Self-Cure]", "variant": "emphasis" },
+    { "id": "m14", "from": "api", "to": "ai_engine", "y": 680, "label": "predict_best_time() [Mô hình AI ML04]", "variant": "emphasis" },
+    { "id": "m15", "from": "api", "to": "ai_engine", "y": 715, "label": "diagnose_root_cause() [Camunda DMN 1.3 Table]", "variant": "security" },
+    { "id": "m16", "from": "ai_engine", "to": "api", "y": 750, "label": "P_self_cure, Giờ vàng & Nguyên nhân (WILFUL_DEFAULT)", "variant": "return" },
+
+    { "id": "m17", "from": "api", "to": "cbr_engine", "y": 805, "label": "find_top_similar_reference_cases() [Vector 192D]", "variant": "emphasis" },
+    { "id": "m18", "from": "cbr_engine", "to": "api", "y": 840, "label": "Top 5 Cases tương đồng (Khớp 85.9%) + Đòn bẩy tối ưu", "variant": "return" },
+    { "id": "m19", "from": "api", "to": "guardrail", "y": 875, "label": "Kiểm tra quy định L6 (Bên thứ 3, Giờ cấm, Nhắc nhẹ)", "variant": "security" },
+    { "id": "m20", "from": "guardrail", "to": "api", "y": 910, "label": "Cảnh báo bắt buộc: Chỉ gọi chính chủ, 07:00–21:00", "variant": "return" },
+    { "id": "m21", "from": "api", "to": "workspace", "y": 945, "label": "200 OK (Debtor Persona 360 Full Payload)", "variant": "return" },
+    { "id": "m22", "from": "workspace", "to": "collector", "y": 980, "label": "Render PersonaCard, Update Softphone & Complete View", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "workspace", "from": 170, "to": 980, "type": "frontend" },
+    { "participant": "api", "from": 240, "to": 350, "type": "backend" },
+    { "participant": "database", "from": 275, "to": 315, "type": "database" },
+    { "participant": "api", "from": 435, "to": 950, "type": "backend" },
+    { "participant": "database", "from": 470, "to": 510, "type": "database" },
+    { "participant": "adapters", "from": 540, "to": 615, "type": "backend" },
+    { "participant": "ai_engine", "from": 645, "to": 755, "type": "backend" },
+    { "participant": "cbr_engine", "from": 805, "to": 845, "type": "database" },
+    { "participant": "guardrail", "from": 875, "to": 915, "type": "security" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Song song 2 luồng truy vấn (Parallel Fetch)",
+      "items": [
+        "Frontend tách biệt 2 API: lấy Lịch sử tương tác nhanh (I/O đơn giản từ SQLite) và lấy Chân dung 360 (tính toán suy luận AI chuyên sâu)",
+        "Đảm bảo màn hình hiển thị ngay skeleton loading, không gây giật lag khi chuyển đổi giữa 500 hồ sơ nợ"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Hội tụ Đa nguồn qua Hexagonal Adapters",
+      "items": [
+        "Core Banking Adapter (IF-CORE-01): Lấy dòng tiền thực nhận hàng tháng, ngày nhận lương và số dư tài khoản thanh toán (CASA)",
+        "CIC Adapter (IF-CIC-01): Quét lịch sử quan hệ tín dụng và phát hiện hành vi trả nợ ngân hàng khác nhưng cố tình chây ỳ nợ BIDV",
+        "LOS Adapter (IF-LOS-01): Trích xuất thông tin tài sản thế chấp và tỷ lệ cho vay trên giá trị định giá (LTV)"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Bộ ba Trí tuệ AI + DMN 1.3 + CBR 192D",
+      "items": [
+        "ML01 & ML04: Dự đoán xác suất tự trả nợ (Self-cure) và khung giờ gọi điện đạt tỷ lệ gặp chính chủ (RPC) cao nhất",
+        "Camunda DMN 1.3: Suy luận nguyên nhân gốc rễ theo bảng luật rủi ro không hardcode, hỗ trợ Hot-Reload và lưu mã kiểm toán rule_id",
+        "Case-Based Reasoning (CBR): Chiếu hồ sơ vào không gian vector 192 chiều, tìm 5 hồ sơ tương đồng lịch sử để gợi ý kịch bản xử lý tối ưu"
+      ]
+    }
+  ]
+}
