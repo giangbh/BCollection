@@ -167,6 +167,13 @@ def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo)
 
         conn.commit()
 
+    # Luôn nạp toàn bộ quan hệ nghĩa vụ vào Obligation Repo (cho cả trường hợp đã seed hoặc mới seed)
+    cursor.execute("SELECT loan_id, debtor_cif, guarantor_id FROM cases;")
+    for row in cursor.fetchall():
+        obl_repo.add_obligation(loan_id=row["loan_id"], party_id=row["debtor_cif"], edge_type="BORROWED", contact_eligible="YES")
+        if row["guarantor_id"]:
+            obl_repo.add_obligation(loan_id=row["loan_id"], party_id=row["guarantor_id"], edge_type="GUARANTEES", contact_eligible="YES")
+
     # Nạp 1000 hồ sơ CBR Reference Case vào SQLite (Vector 192 chiều thực tế)
     from cbr_engine import seed_1000_cbr_cases_if_needed
     seed_1000_cbr_cases_if_needed(conn)

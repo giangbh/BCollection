@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "B.Collection — Kiến trúc Logic 9 Tầng (L0 – L8)",
+    "subtitle": "Governed Closed-Loop Decisioning Platform for Enterprise Debt Collection",
+    "quality_profile": "showcase",
+    "viewBox": [1060, 490],
+    "views": [
+      {
+        "id": "full-flow",
+        "label": "Vòng lặp khép kín hoàn chỉnh",
+        "focus": ["l0_sources", "l1_ingestion", "l2_lakehouse", "l3_knowledge", "l4_intelligence", "l5_decisioning", "l6_guardrail", "l7_execution", "l8_experience"],
+        "note": "Luồng khép kín từ dữ liệu gốc qua đồ thị tri thức, AI/ML, kiểm duyệt tuân thủ đến thực thi và học lại."
+      },
+      {
+        "id": "compliance-gate",
+        "label": "Chốt chặn Tuân thủ L6",
+        "focus": ["l5_decisioning", "l6_guardrail", "l7_execution"],
+        "note": "Mọi quyết định NBA từ L5 phải được L6 cấp Signed Execution Token mới được phép thực thi ở L7."
+      },
+      {
+        "id": "data-to-intelligence",
+        "label": "Dữ liệu tới Tri thức & AI",
+        "focus": ["l0_sources", "l1_ingestion", "l2_lakehouse", "l3_knowledge", "l4_intelligence"],
+        "note": "Dữ liệu nguồn được chuẩn hóa, hợp nhất danh tính Golden ID và xây dựng Debt Knowledge Graph 7 trục."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "l0_sources",
+      "type": "external",
+      "label": "L0. Nguồn Dữ liệu",
+      "sublabel": "Core • LOS • Thẻ • CIC • CRM",
+      "tag": "Systems of Record",
+      "pos": [30, 140],
+      "size": [170, 72]
+    },
+    {
+      "id": "l1_ingestion",
+      "type": "messagebus",
+      "label": "L1. Thu thập & Tích hợp",
+      "sublabel": "CDC • Kafka • Spark Streaming",
+      "tag": "Streaming & Batch",
+      "pos": [235, 140],
+      "size": [170, 72]
+    },
+    {
+      "id": "l2_lakehouse",
+      "type": "database",
+      "label": "L2. Nền tảng Dữ liệu",
+      "sublabel": "Iceberg • Milvus • Masking PII",
+      "tag": "Lakehouse Storage",
+      "pos": [440, 140],
+      "size": [170, 72]
+    },
+    {
+      "id": "l3_knowledge",
+      "type": "database",
+      "label": "L3. Tri thức & Graph",
+      "sublabel": "Debtor 360 • Neo4j Debt Graph",
+      "tag": "Golden Identity",
+      "pos": [645, 140],
+      "size": [170, 72]
+    },
+    {
+      "id": "l4_intelligence",
+      "type": "backend",
+      "label": "L4. Trí tuệ AI & ML",
+      "sublabel": "11 ML Models • Case Memory CBR",
+      "tag": "Uplift & Propensity",
+      "pos": [850, 140],
+      "size": [170, 72]
+    },
+    {
+      "id": "l5_decisioning",
+      "type": "backend",
+      "label": "L5. Quyết định Chiến lược",
+      "sublabel": "NBA Engine • Dynamic Segments",
+      "tag": "Optimizer & BRE",
+      "pos": [850, 310],
+      "size": [170, 72]
+    },
+    {
+      "id": "l6_guardrail",
+      "type": "security",
+      "label": "⛨ L6. Kiểm soát Tuân thủ",
+      "sublabel": "Eligibility • Hours • NLP Filter",
+      "tag": "Fail-Closed Gate",
+      "pos": [645, 310],
+      "size": [170, 72]
+    },
+    {
+      "id": "l7_execution",
+      "type": "backend",
+      "label": "L7. Thực thi Đa kênh",
+      "sublabel": "Temporal BPM • CTI • Zalo/SMS",
+      "tag": "Channel Dispatch",
+      "pos": [440, 310],
+      "size": [170, 72]
+    },
+    {
+      "id": "l8_experience",
+      "type": "frontend",
+      "label": "L8. Trải nghiệm UI/UX",
+      "sublabel": "Collector Desk • Field App",
+      "tag": "Unified UI/UX",
+      "pos": [235, 310],
+      "size": [170, 72]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Vùng Xử lý Nghiệp vụ & Dữ liệu Nhạy cảm (L1 – L8)",
+      "wraps": ["l1_ingestion", "l2_lakehouse", "l3_knowledge", "l4_intelligence", "l5_decisioning", "l6_guardrail", "l7_execution", "l8_experience"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "l0-to-l1",
+      "from": "l0_sources",
+      "to": "l1_ingestion",
+      "variant": "emphasis"
+    },
+    {
+      "id": "l1-to-l2",
+      "from": "l1_ingestion",
+      "to": "l2_lakehouse",
+      "variant": "emphasis"
+    },
+    {
+      "id": "l2-to-l3",
+      "from": "l2_lakehouse",
+      "to": "l3_knowledge",
+      "variant": "emphasis"
+    },
+    {
+      "id": "l3-to-l4",
+      "from": "l3_knowledge",
+      "to": "l4_intelligence",
+      "variant": "emphasis"
+    },
+    {
+      "id": "l4-to-l5",
+      "from": "l4_intelligence",
+      "to": "l5_decisioning",
+      "label": "Scoring & CBR",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [935, 260]
+    },
+    {
+      "id": "l5-to-l6",
+      "from": "l5_decisioning",
+      "to": "l6_guardrail",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "l6-to-l7",
+      "from": "l6_guardrail",
+      "to": "l7_execution",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "l7-to-l8",
+      "from": "l7_execution",
+      "to": "l8_experience",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "feedback-loop",
+      "from": "l7_execution",
+      "to": "l2_lakehouse",
+      "label": "Case Feedback",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [525, 260]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Chốt chặn L6 Guardrail (Fail-Closed)",
+      "items": [
+        "Chạy độc lập và deterministic — tuyệt đối không cho phép AI tự ý gọi điện/nhắn tin ngoài luồng",
+        "Mọi lệnh tương tác phải có Signed JWT Token (ES256, TTL 5 phút); nếu timeout/lỗi hệ thống thì tự động chặn (Fail-Closed)",
+        "Kiểm soát cứng: không liên hệ bên thứ 3 vô can, chặn giờ cấm (20h–8h), hạn mức tần suất và bộ lọc ngôn từ xúc phạm"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Vòng lặp Ra quyết định Khép kín",
+      "items": [
+        "Từ dữ liệu nguồn (L0–L2) hợp nhất danh tính Golden ID và xây dựng Debt Knowledge Graph (L3)",
+        "Mô hình AI Uplift + Case-Based Reasoning (L4) phát hiện đúng khách hàng tự trả nợ (Self-cure) và gợi ý phương án đàm phán tối ưu",
+        "Kết quả thực thi (L7–L8) được ghi nhận ngược lại Case Memory (L4) và Lakehouse (L2) để liên tục học và thích ứng"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Tiêu chuẩn Kiến trúc & Pháp lý",
+      "items": [
+        "Chuẩn hóa theo BIAN (Banking Industry Architecture Network) và khung quản trị TOGAF",
+        "Tuân thủ nghiêm ngặt Luật Bảo vệ Dữ liệu Cá nhân 91/2025/QH15 (ẩn danh hóa PII, kiểm soát quyền truy cập)",
+        "Phù hợp quy định về thu hồi nợ của Luật Các Tổ chức Tín dụng 32/2024/QH15 và Thông tư 18/2019/TT-NHNN"
+      ]
+    }
+  ]
+}

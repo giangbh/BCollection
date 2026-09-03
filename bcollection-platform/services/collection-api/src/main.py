@@ -8,6 +8,7 @@ import os
 
 # Thêm đường dẫn libs và guardrail vào path
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
+sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, 'bcollection-platform/libs'))
 sys.path.insert(0, os.path.join(BASE_DIR, 'bcollection-guardrail'))
 sys.path.insert(0, os.path.join(BASE_DIR, 'bcollection-data'))

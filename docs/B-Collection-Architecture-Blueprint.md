@@ -163,8 +163,10 @@ Khi khách hàng rơi vào diện: điều trị bệnh hiểm nghèo, mất s�
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │ L0. NGUỒN DỮ LIỆU (Data Sources)                                                       │
 │     Core Banking │ LOS/CLMS │ Thẻ │ CIF │ TSBĐ │ CIC │ CRM │ Tổng đài │ Cổng QG ĐKKD    │
-└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+> 🌐 **Bản đồ tương tác trực quan:** [Mở B.Collection 9-Layer Architecture HTML](file:///Users/giangbh/BLending/BCollection/docs/diagram/B.Collection-9-Layer-Architecture.html)  
+> 📊 **Đặc tả Archify IR:** [`docs/diagram/bcollection-9-layer-architecture.json`](file:///Users/giangbh/BLending/BCollection/docs/diagram/bcollection-9-layer-architecture.json)
 
 ---
 
