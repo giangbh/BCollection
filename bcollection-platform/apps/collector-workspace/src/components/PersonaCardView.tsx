@@ -152,6 +152,44 @@ export const PersonaCardView: React.FC<PersonaCardViewProps> = ({
       {/* TAB 1: CHÂN DUNG PERSONA 360 */}
       {activeTab === 'PERSONA' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Inflow Archetype & Payroll Relationship Badge */}
+          {persona.inflow_profile && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              fontSize: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--text-sub)', fontSize: '11px' }}>Dòng tiền:</span>
+                {persona.inflow_profile.has_payroll ? (
+                  <span style={{ backgroundColor: 'rgba(52, 211, 153, 0.2)', color: '#34d399', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, fontSize: '11px' }}>
+                    🏢 Chi lương BIDV (Ngày {persona.inflow_profile.salary_day})
+                  </span>
+                ) : persona.inflow_profile.archetype === 'MERCHANT_BUSINESS' ? (
+                  <span style={{ backgroundColor: 'rgba(251, 191, 36, 0.2)', color: '#fbbf24', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, fontSize: '11px' }}>
+                    🏪 Tiểu thương / VietQR (Đệm CASA {persona.inflow_profile.casa_buffer_ratio}x)
+                  </span>
+                ) : persona.inflow_profile.archetype === 'NON_PAYROLL_SALARIED' ? (
+                  <span style={{ backgroundColor: 'rgba(96, 165, 250, 0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, fontSize: '11px' }}>
+                    💳 Lương {persona.inflow_profile.payroll_bank} (Ước tính ngày {persona.inflow_profile.salary_day})
+                  </span>
+                ) : (
+                  <span style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)', color: '#c084fc', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, fontSize: '11px' }}>
+                    💼 Thu nhập tự do (CASA: {persona.inflow_profile.casa_balance?.toLocaleString('vi-VN')} đ)
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--text-sub)' }}>
+                Số dư CASA: <strong style={{ color: '#34d399' }}>{persona.inflow_profile.casa_balance?.toLocaleString('vi-VN')} đ</strong>
+              </span>
+            </div>
+          )}
+
           {/* 3 Core Scores */}
           <div style={{
             display: 'grid',

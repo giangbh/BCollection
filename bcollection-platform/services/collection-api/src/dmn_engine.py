@@ -245,25 +245,45 @@ class EmbeddedDMNEngine:
         product = case.get("product_code", "UNSECURED_LOAN")
         overdue_amt = float(case.get("overdue_amount", 0.0))
         salary_day = getattr(inflow_profile, "salary_day_of_month", 10)
+        has_payroll = getattr(inflow_profile, "has_payroll_relationship", True)
+        archetype = getattr(inflow_profile, "inflow_archetype", "PAYROLL_INTERNAL")
+        casa_buffer = float(getattr(inflow_profile, "casa_buffer_ratio", 1.0))
+        inferred_day = getattr(inflow_profile, "inferred_pay_day_of_month", 12)
+        bank_name = getattr(inflow_profile, "payroll_bank_name", "BIDV")
 
         # Kiểm tra độ vênh giữa ngày nhận lương và ngày đáo hạn (thường là mùng 5)
-        is_salary_gap = (5 <= dpd <= 15) and (salary_day > 5)
+        is_salary_gap = (5 <= dpd <= 15) and (salary_day > 5) if has_payroll else (5 <= dpd <= 15)
 
         context = {
             "paying_other_banks_while_overdue": paying_other_banks_while_overdue,
             "dpd": dpd,
             "overdue_amount": overdue_amt,
             "product_code": product,
-            "is_salary_gap": is_salary_gap,
-            "salary_day_of_month": salary_day
+            "has_payroll_relationship": has_payroll,
+            "inflow_archetype": archetype,
+            "casa_buffer_ratio": casa_buffer,
+            "is_salary_gap": is_salary_gap
         }
 
         eval_res = self.evaluate(context)
         res_dict = eval_res.to_dict()
 
-        # Format thêm mô tả động nếu là lệch ngày lương
-        if res_dict.get("primary") == "CASHFLOW_TIMING" and "Lệch chu kỳ dòng tiền" in res_dict.get("description", ""):
-            res_dict["description"] = f"Lệch chu kỳ dòng tiền: Ngày nhận lương là ngày {salary_day}, kỳ trả nợ là ngày 05."
+        # Format thêm chi tiết diễn giải động chuẩn mực theo từng phân khúc
+        if res_dict.get("primary") == "CASHFLOW_TIMING":
+            if has_payroll:
+                res_dict["description"] = f"Lệch chu kỳ dòng tiền: Ngày nhận lương tại BIDV là ngày {salary_day}, kỳ trả nợ là ngày 05."
+            elif archetype == "NON_PAYROLL_SALARIED":
+                res_dict["description"] = f"Chờ chuyển khoản lương từ {bank_name} (ước tính theo kỳ trước vào ngày {inferred_day or 12})."
+        elif res_dict.get("primary") == "FORGOT_OR_ADMIN" and casa_buffer >= 1.5:
+            res_dict["description"] = f"Đủ đệm thanh khoản CASA ({casa_buffer:.1f}x nợ): Khách có đủ tiền nhưng quên lệnh thanh toán hoặc chưa kích hoạt Auto-Debit."
+        elif res_dict.get("primary") == "BUSINESS_DOWNTURN" and archetype == "MERCHANT_BUSINESS":
+            res_dict["description"] = "Tiểu thương/Hộ kinh doanh: Chờ thu hồi doanh số bán hàng qua VietQR hoặc công nợ đối tác."
+
+        # Bổ sung thông tin phân khúc dòng tiền vào output
+        res_dict["inflow_archetype"] = archetype
+        res_dict["has_payroll_relationship"] = has_payroll
+        res_dict["casa_buffer_ratio"] = casa_buffer
+        res_dict["payroll_bank_name"] = bank_name
 
         return res_dict
 

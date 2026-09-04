@@ -223,14 +223,20 @@ class DynamicDebtorPersonaEngine:
         collaterals = self.los_adapter.get_loan_collateral(loan_id)
         ltv = collaterals[0].ltv_ratio if collaterals else None
 
-        # 2. Chạy Mô hình AI ML01 (Self-Cure Propensity)
+        # 2. Chạy Mô hình AI ML01 (Self-Cure Propensity) hỗ trợ cả Payroll và Non-Payroll
         monthly_obligation = case.get("overdue_amount", 5_000_000.0)
+        inferred_day = getattr(inflow_profile, "inferred_pay_day_of_month", 12) or 12
         ml01_features = {
             "dpd": dpd,
             "historical_on_time_ratio": 0.88 if dpd < 15 else 0.65,
             "days_since_salary_day": abs(datetime.now().day - inflow_profile.salary_day_of_month),
             "prior_cure_count": 2 if dpd < 15 else 0,
-            "dti_ratio": min(0.9, monthly_obligation / max(1.0, inflow_profile.verified_inflow_avg_monthly))
+            "dti_ratio": min(0.9, monthly_obligation / max(1.0, inflow_profile.verified_inflow_avg_monthly)),
+            "has_payroll_relationship": getattr(inflow_profile, "has_payroll_relationship", True),
+            "inflow_archetype": getattr(inflow_profile, "inflow_archetype", "PAYROLL_INTERNAL"),
+            "casa_buffer_ratio": getattr(inflow_profile, "casa_buffer_ratio", 1.0),
+            "payroll_bank_name": getattr(inflow_profile, "payroll_bank_name", "BIDV"),
+            "days_since_historical_pay_rhythm": abs(datetime.now().day - inferred_day)
         }
         self_cure_pred = self.ml01.evaluate_case(cif, ml01_features)
 
@@ -325,6 +331,14 @@ class DynamicDebtorPersonaEngine:
             "segment_cell": segment_cell,
             "segment_name": segment_name,
             "root_cause": root_cause,
+            "inflow_profile": {
+                "archetype": getattr(inflow_profile, "inflow_archetype", "PAYROLL_INTERNAL"),
+                "has_payroll": getattr(inflow_profile, "has_payroll_relationship", True),
+                "payroll_bank": getattr(inflow_profile, "payroll_bank_name", "BIDV"),
+                "casa_balance": getattr(inflow_profile, "casa_balance", 0.0),
+                "casa_buffer_ratio": getattr(inflow_profile, "casa_buffer_ratio", 1.0),
+                "salary_day": getattr(inflow_profile, "salary_day_of_month", 10) if getattr(inflow_profile, "has_payroll_relationship", True) else getattr(inflow_profile, "inferred_pay_day_of_month", 12)
+            },
             "recommended_playbook": cbr_playbook,
             "similar_references": similar_cases,
             "mandatory_guardrail_notes": mandatory_guardrails

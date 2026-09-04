@@ -35,6 +35,11 @@ class CustomerInflowProfile:
     casa_balance: float
     salary_day_of_month: int
     stability_coefficient: float
+    has_payroll_relationship: bool = True
+    inflow_archetype: str = "PAYROLL_INTERNAL"  # PAYROLL_INTERNAL, MERCHANT_BUSINESS, NON_PAYROLL_SALARIED, GIG_FREELANCE
+    casa_buffer_ratio: float = 1.0              # Tỷ lệ đệm thanh khoản CASA / Nghĩa vụ trả nợ
+    inferred_pay_day_of_month: Optional[int] = None # Ngày chu kỳ tiền về suy luận từ LOS/Lịch sử
+    payroll_bank_name: str = "BIDV"
 
 
 class CoreBankingAdapter:
@@ -130,5 +135,10 @@ class CoreBankingAdapter:
             verified_inflow_avg_monthly=float(data.get("verified_inflow_avg_monthly", 20000000.0)),
             casa_balance=float(data.get("casa_balance", 0.0)),
             salary_day_of_month=int(data.get("salary_day_of_month", 10)),
-            stability_coefficient=float(data.get("stability_coefficient", 0.85))
+            stability_coefficient=float(data.get("stability_coefficient", 0.85)),
+            has_payroll_relationship=bool(data.get("has_payroll_relationship", True)),
+            inflow_archetype=str(data.get("inflow_archetype", "PAYROLL_INTERNAL")),
+            casa_buffer_ratio=float(data.get("casa_buffer_ratio", 1.0)),
+            inferred_pay_day_of_month=data.get("inferred_pay_day_of_month"),
+            payroll_bank_name=str(data.get("payroll_bank_name", "BIDV"))
         )

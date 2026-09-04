@@ -6,7 +6,7 @@
              id="definitions_bcollection_root_cause"
              name="Delinquency Root Cause Decisions"
              namespace="http://camunda.org/schema/1.0/dmn">
-  <decision id="decision_root_cause" name="Root Cause Diagnosis Table" camunda:versionTag="1.0.0">
+  <decision id="decision_root_cause" name="Root Cause Diagnosis Table" camunda:versionTag="2.0.0">
     <decisionTable id="decisionTable_root_cause" hitPolicy="FIRST">
       <!-- Input 1: Tín hiệu trả nợ ngân hàng khác từ CIC -->
       <input id="input_paying_other_banks" label="Trả nợ TCTD khác (CIC)">
@@ -36,7 +36,28 @@
         </inputExpression>
       </input>
 
-      <!-- Input 5: Có bị lệch kỳ lương với ngày nộp không -->
+      <!-- Input 5: Có quan hệ trả lương nội bộ không -->
+      <input id="input_has_payroll" label="Có chi lương nội bộ">
+        <inputExpression id="inputExpr_has_payroll" typeRef="boolean">
+          <text>has_payroll_relationship</text>
+        </inputExpression>
+      </input>
+
+      <!-- Input 6: Hình thái dòng tiền khách hàng -->
+      <input id="input_inflow_archetype" label="Hình thái dòng tiền">
+        <inputExpression id="inputExpr_inflow_archetype" typeRef="string">
+          <text>inflow_archetype</text>
+        </inputExpression>
+      </input>
+
+      <!-- Input 7: Tỷ lệ đệm thanh khoản CASA / Nghĩa vụ nợ -->
+      <input id="input_casa_buffer_ratio" label="Tỷ lệ đệm CASA (x)">
+        <inputExpression id="inputExpr_casa_buffer_ratio" typeRef="double">
+          <text>casa_buffer_ratio</text>
+        </inputExpression>
+      </input>
+
+      <!-- Input 8: Có bị lệch kỳ lương với ngày nộp không -->
       <input id="input_is_salary_gap" label="Lệch kỳ nhận lương">
         <inputExpression id="inputExpr_is_salary_gap" typeRef="boolean">
           <text>is_salary_gap</text>
@@ -64,6 +85,9 @@
         <inputEntry id="unary_wilful_01_3"><text>-</text></inputEntry>
         <inputEntry id="unary_wilful_01_4"><text>-</text></inputEntry>
         <inputEntry id="unary_wilful_01_5"><text>-</text></inputEntry>
+        <inputEntry id="unary_wilful_01_6"><text>-</text></inputEntry>
+        <inputEntry id="unary_wilful_01_7"><text>-</text></inputEntry>
+        <inputEntry id="unary_wilful_01_8"><text>-</text></inputEntry>
         <outputEntry id="out_wilful_01_1"><text>"WILFUL_DEFAULT"</text></outputEntry>
         <outputEntry id="out_wilful_01_2"><text>4</text></outputEntry>
         <outputEntry id="out_wilful_01_3"><text>"Cố tình chây ỳ: Vẫn trả nợ đều ở TCTD khác nhưng cố tình không thanh toán nợ Ngân hàng."</text></outputEntry>
@@ -77,75 +101,125 @@
         <inputEntry id="unary_overindebted_02_3"><text>&gt;= 20000000</text></inputEntry>
         <inputEntry id="unary_overindebted_02_4"><text>-</text></inputEntry>
         <inputEntry id="unary_overindebted_02_5"><text>-</text></inputEntry>
+        <inputEntry id="unary_overindebted_02_6"><text>-</text></inputEntry>
+        <inputEntry id="unary_overindebted_02_7"><text>-</text></inputEntry>
+        <inputEntry id="unary_overindebted_02_8"><text>-</text></inputEntry>
         <outputEntry id="out_overindebted_02_1"><text>"OVER_INDEBTED"</text></outputEntry>
         <outputEntry id="out_overindebted_02_2"><text>4</text></outputEntry>
         <outputEntry id="out_overindebted_02_3"><text>"Áp lực đa khoản vay: Dư nợ tại nhiều TCTD vượt ngưỡng an toàn dòng tiền."</text></outputEntry>
         <outputEntry id="out_overindebted_02_4"><text>"RULE_OVER_INDEBTED_02"</text></outputEntry>
       </rule>
 
-      <!-- RULE 3: Lệch chu kỳ dòng tiền lương (Đang trễ 5-15 ngày và có độ vênh ngày lương) -->
-      <rule id="rule_cashflow_gap_03">
-        <inputEntry id="unary_cashflow_gap_03_1"><text>-</text></inputEntry>
-        <inputEntry id="unary_cashflow_gap_03_2"><text>[5..15]</text></inputEntry>
-        <inputEntry id="unary_cashflow_gap_03_3"><text>-</text></inputEntry>
-        <inputEntry id="unary_cashflow_gap_03_4"><text>-</text></inputEntry>
-        <inputEntry id="unary_cashflow_gap_03_5"><text>true</text></inputEntry>
-        <outputEntry id="out_cashflow_gap_03_1"><text>"CASHFLOW_TIMING"</text></outputEntry>
-        <outputEntry id="out_cashflow_gap_03_2"><text>5</text></outputEntry>
-        <outputEntry id="out_cashflow_gap_03_3"><text>"Lệch chu kỳ dòng tiền: Ngày nhận lương lệch với kỳ thanh toán nợ Ngân hàng."</text></outputEntry>
-        <outputEntry id="out_cashflow_gap_03_4"><text>"RULE_CASHFLOW_GAP_03"</text></outputEntry>
+      <!-- RULE 3: Đủ tiền trong tài khoản CASA (Đệm >= 1.5x nợ, trễ <= 7 ngày) -> Sơ suất quên/chưa bật Auto-Debit -->
+      <rule id="rule_forgot_high_buffer_03">
+        <inputEntry id="unary_buffer_03_1"><text>-</text></inputEntry>
+        <inputEntry id="unary_buffer_03_2"><text>&lt;= 7</text></inputEntry>
+        <inputEntry id="unary_buffer_03_3"><text>-</text></inputEntry>
+        <inputEntry id="unary_buffer_03_4"><text>-</text></inputEntry>
+        <inputEntry id="unary_buffer_03_5"><text>-</text></inputEntry>
+        <inputEntry id="unary_buffer_03_6"><text>-</text></inputEntry>
+        <inputEntry id="unary_buffer_03_7"><text>&gt;= 1.5</text></inputEntry>
+        <inputEntry id="unary_buffer_03_8"><text>-</text></inputEntry>
+        <outputEntry id="out_buffer_03_1"><text>"FORGOT_OR_ADMIN"</text></outputEntry>
+        <outputEntry id="out_buffer_03_2"><text>5</text></outputEntry>
+        <outputEntry id="out_buffer_03_3"><text>"Đủ đệm thanh khoản CASA: Khách có đủ số dư nhưng quên lệnh chuyển tiền hoặc chưa kích hoạt Auto-Debit."</text></outputEntry>
+        <outputEntry id="out_buffer_03_4"><text>"RULE_FORGOT_HIGH_BUFFER_03"</text></outputEntry>
       </rule>
 
-      <!-- RULE 4: Lệch chu kỳ dòng tiền chung trong khung 5-15 ngày -->
-      <rule id="rule_cashflow_mid_04">
-        <inputEntry id="unary_cashflow_mid_04_1"><text>-</text></inputEntry>
-        <inputEntry id="unary_cashflow_mid_04_2"><text>[5..15]</text></inputEntry>
-        <inputEntry id="unary_cashflow_mid_04_3"><text>-</text></inputEntry>
-        <inputEntry id="unary_cashflow_mid_04_4"><text>-</text></inputEntry>
-        <inputEntry id="unary_cashflow_mid_04_5"><text>-</text></inputEntry>
-        <outputEntry id="out_cashflow_mid_04_1"><text>"CASHFLOW_TIMING"</text></outputEntry>
-        <outputEntry id="out_cashflow_mid_04_2"><text>4</text></outputEntry>
-        <outputEntry id="out_cashflow_mid_04_3"><text>"Chờ dòng tiền về trong kỳ: Đang chờ doanh thu kinh doanh hoặc kỳ lương sắp tới."</text></outputEntry>
-        <outputEntry id="out_cashflow_mid_04_4"><text>"RULE_CASHFLOW_MID_04"</text></outputEntry>
+      <!-- RULE 4: Lệch chu kỳ lương nội bộ (Khách Payroll có độ vênh ngày lương) -->
+      <rule id="rule_cashflow_payroll_04">
+        <inputEntry id="unary_payroll_04_1"><text>-</text></inputEntry>
+        <inputEntry id="unary_payroll_04_2"><text>[5..15]</text></inputEntry>
+        <inputEntry id="unary_payroll_04_3"><text>-</text></inputEntry>
+        <inputEntry id="unary_payroll_04_4"><text>-</text></inputEntry>
+        <inputEntry id="unary_payroll_04_5"><text>true</text></inputEntry>
+        <inputEntry id="unary_payroll_04_6"><text>"PAYROLL_INTERNAL"</text></inputEntry>
+        <inputEntry id="unary_payroll_04_7"><text>-</text></inputEntry>
+        <inputEntry id="unary_payroll_04_8"><text>true</text></inputEntry>
+        <outputEntry id="out_payroll_04_1"><text>"CASHFLOW_TIMING"</text></outputEntry>
+        <outputEntry id="out_payroll_04_2"><text>5</text></outputEntry>
+        <outputEntry id="out_payroll_04_3"><text>"Lệch chu kỳ dòng tiền: Ngày nhận lương nội bộ lệch với kỳ thanh toán nợ."</text></outputEntry>
+        <outputEntry id="out_payroll_04_4"><text>"RULE_CASHFLOW_PAYROLL_04"</text></outputEntry>
       </rule>
 
-      <!-- RULE 5: Sơ suất ngắn hạn (DPD <= 5 ngày, quên lịch, lỗi chuyển khoản) -->
-      <rule id="rule_forgot_admin_05">
-        <inputEntry id="unary_forgot_admin_05_1"><text>-</text></inputEntry>
-        <inputEntry id="unary_forgot_admin_05_2"><text>&lt;= 5</text></inputEntry>
-        <inputEntry id="unary_forgot_admin_05_3"><text>-</text></inputEntry>
-        <inputEntry id="unary_forgot_admin_05_4"><text>-</text></inputEntry>
-        <inputEntry id="unary_forgot_admin_05_5"><text>-</text></inputEntry>
-        <outputEntry id="out_forgot_admin_05_1"><text>"FORGOT_OR_ADMIN"</text></outputEntry>
-        <outputEntry id="out_forgot_admin_05_2"><text>4</text></outputEntry>
-        <outputEntry id="out_forgot_admin_05_3"><text>"Quên lịch thanh toán định kỳ hoặc lỗi thao tác chuyển tiền qua ứng dụng."</text></outputEntry>
-        <outputEntry id="out_forgot_admin_05_4"><text>"RULE_FORGOT_ADMIN_05"</text></outputEntry>
+      <!-- RULE 5: Hộ kinh doanh / Tiểu thương: Chờ dòng tiền doanh số bán hàng / quay vòng vốn -->
+      <rule id="rule_merchant_cashflow_05">
+        <inputEntry id="unary_merchant_05_1"><text>-</text></inputEntry>
+        <inputEntry id="unary_merchant_05_2"><text>[5..15]</text></inputEntry>
+        <inputEntry id="unary_merchant_05_3"><text>-</text></inputEntry>
+        <inputEntry id="unary_merchant_05_4"><text>-</text></inputEntry>
+        <inputEntry id="unary_merchant_05_5"><text>false</text></inputEntry>
+        <inputEntry id="unary_merchant_05_6"><text>"MERCHANT_BUSINESS"</text></inputEntry>
+        <inputEntry id="unary_merchant_05_7"><text>-</text></inputEntry>
+        <inputEntry id="unary_merchant_05_8"><text>-</text></inputEntry>
+        <outputEntry id="out_merchant_05_1"><text>"BUSINESS_DOWNTURN"</text></outputEntry>
+        <outputEntry id="out_merchant_05_2"><text>4</text></outputEntry>
+        <outputEntry id="out_merchant_05_3"><text>"Tiểu thương/Hộ kinh doanh: Chờ thu hồi doanh số bán hàng qua VietQR hoặc công nợ đối tác."</text></outputEntry>
+        <outputEntry id="out_merchant_05_4"><text>"RULE_MERCHANT_CASHFLOW_05"</text></outputEntry>
       </rule>
 
-      <!-- RULE 6: Kinh doanh suy giảm đối với các sản phẩm thế chấp / ô tô / SME -->
-      <rule id="rule_business_downturn_06">
-        <inputEntry id="unary_business_downturn_06_1"><text>-</text></inputEntry>
-        <inputEntry id="unary_business_downturn_06_2"><text>-</text></inputEntry>
-        <inputEntry id="unary_business_downturn_06_3"><text>-</text></inputEntry>
-        <inputEntry id="unary_business_downturn_06_4"><text>"MORTGAGE", "AUTO_LOAN", "MORTGAGE_HOME", "SME_WORKING_CAPITAL"</text></inputEntry>
-        <inputEntry id="unary_business_downturn_06_5"><text>-</text></inputEntry>
-        <outputEntry id="out_business_downturn_06_1"><text>"BUSINESS_DOWNTURN"</text></outputEntry>
-        <outputEntry id="out_business_downturn_06_2"><text>3</text></outputEntry>
-        <outputEntry id="out_business_downturn_06_3"><text>"Kinh doanh chậm thu hồi công nợ / Hàng tồn kho đọng vốn tạm thời."</text></outputEntry>
-        <outputEntry id="out_business_downturn_06_4"><text>"RULE_BUSINESS_DOWNTURN_06"</text></outputEntry>
+      <!-- RULE 6: Khách hàng nhận lương ngân hàng khác (Non-Payroll Salaried) trễ 5-15 ngày -->
+      <rule id="rule_nonpayroll_salary_06">
+        <inputEntry id="unary_nonpay_06_1"><text>-</text></inputEntry>
+        <inputEntry id="unary_nonpay_06_2"><text>[5..15]</text></inputEntry>
+        <inputEntry id="unary_nonpay_06_3"><text>-</text></inputEntry>
+        <inputEntry id="unary_nonpay_06_4"><text>-</text></inputEntry>
+        <inputEntry id="unary_nonpay_06_5"><text>false</text></inputEntry>
+        <inputEntry id="unary_nonpay_06_6"><text>"NON_PAYROLL_SALARIED"</text></inputEntry>
+        <inputEntry id="unary_nonpay_06_7"><text>-</text></inputEntry>
+        <inputEntry id="unary_nonpay_06_8"><text>-</text></inputEntry>
+        <outputEntry id="out_nonpay_06_1"><text>"CASHFLOW_TIMING"</text></outputEntry>
+        <outputEntry id="out_nonpay_06_2"><text>4</text></outputEntry>
+        <outputEntry id="out_nonpay_06_3"><text>"Nhận lương tại ngân hàng khác: Chờ nhận lương chuyển khoản định kỳ (theo dữ liệu LOS/Lịch sử)."</text></outputEntry>
+        <outputEntry id="out_nonpay_06_4"><text>"RULE_NON_PAYROLL_SALARIED_06"</text></outputEntry>
       </rule>
 
-      <!-- RULE 7: Mặc định (Fallback): Thu nhập suy giảm hoặc biến cố đột xuất -->
-      <rule id="rule_income_loss_07">
-        <inputEntry id="unary_income_loss_07_1"><text>-</text></inputEntry>
-        <inputEntry id="unary_income_loss_07_2"><text>-</text></inputEntry>
-        <inputEntry id="unary_income_loss_07_3"><text>-</text></inputEntry>
-        <inputEntry id="unary_income_loss_07_4"><text>-</text></inputEntry>
-        <inputEntry id="unary_income_loss_07_5"><text>-</text></inputEntry>
-        <outputEntry id="out_income_loss_07_1"><text>"INCOME_LOSS"</text></outputEntry>
-        <outputEntry id="out_income_loss_07_2"><text>3</text></outputEntry>
-        <outputEntry id="out_income_loss_07_3"><text>"Thu nhập giảm sút hoặc phát sinh chi phí y tế/sinh hoạt đột xuất."</text></outputEntry>
-        <outputEntry id="out_income_loss_07_4"><text>"RULE_INCOME_LOSS_DEFAULT_07"</text></outputEntry>
+      <!-- RULE 7: Sơ suất ngắn hạn (DPD <= 5 ngày) -->
+      <rule id="rule_forgot_admin_07">
+        <inputEntry id="unary_forgot_admin_07_1"><text>-</text></inputEntry>
+        <inputEntry id="unary_forgot_admin_07_2"><text>&lt;= 5</text></inputEntry>
+        <inputEntry id="unary_forgot_admin_07_3"><text>-</text></inputEntry>
+        <inputEntry id="unary_forgot_admin_07_4"><text>-</text></inputEntry>
+        <inputEntry id="unary_forgot_admin_07_5"><text>-</text></inputEntry>
+        <inputEntry id="unary_forgot_admin_07_6"><text>-</text></inputEntry>
+        <inputEntry id="unary_forgot_admin_07_7"><text>-</text></inputEntry>
+        <inputEntry id="unary_forgot_admin_07_8"><text>-</text></inputEntry>
+        <outputEntry id="out_forgot_admin_07_1"><text>"FORGOT_OR_ADMIN"</text></outputEntry>
+        <outputEntry id="out_forgot_admin_07_2"><text>4</text></outputEntry>
+        <outputEntry id="out_forgot_admin_07_3"><text>"Quên lịch thanh toán định kỳ hoặc lỗi thao tác chuyển tiền qua ứng dụng."</text></outputEntry>
+        <outputEntry id="out_forgot_admin_07_4"><text>"RULE_FORGOT_ADMIN_07"</text></outputEntry>
+      </rule>
+
+      <!-- RULE 8: Kinh doanh suy giảm đối với các sản phẩm thế chấp / ô tô / SME -->
+      <rule id="rule_business_downturn_08">
+        <inputEntry id="unary_business_downturn_08_1"><text>-</text></inputEntry>
+        <inputEntry id="unary_business_downturn_08_2"><text>-</text></inputEntry>
+        <inputEntry id="unary_business_downturn_08_3"><text>-</text></inputEntry>
+        <inputEntry id="unary_business_downturn_08_4"><text>"MORTGAGE", "AUTO_LOAN", "MORTGAGE_HOME", "SME_WORKING_CAPITAL"</text></inputEntry>
+        <inputEntry id="unary_business_downturn_08_5"><text>-</text></inputEntry>
+        <inputEntry id="unary_business_downturn_08_6"><text>-</text></inputEntry>
+        <inputEntry id="unary_business_downturn_08_7"><text>-</text></inputEntry>
+        <inputEntry id="unary_business_downturn_08_8"><text>-</text></inputEntry>
+        <outputEntry id="out_business_downturn_08_1"><text>"BUSINESS_DOWNTURN"</text></outputEntry>
+        <outputEntry id="out_business_downturn_08_2"><text>3</text></outputEntry>
+        <outputEntry id="out_business_downturn_08_3"><text>"Kinh doanh chậm thu hồi công nợ / Hàng tồn kho đọng vốn tạm thời."</text></outputEntry>
+        <outputEntry id="out_business_downturn_08_4"><text>"RULE_BUSINESS_DOWNTURN_08"</text></outputEntry>
+      </rule>
+
+      <!-- RULE 9: Mặc định (Fallback): Thu nhập suy giảm hoặc biến cố đột xuất -->
+      <rule id="rule_income_loss_09">
+        <inputEntry id="unary_income_loss_09_1"><text>-</text></inputEntry>
+        <inputEntry id="unary_income_loss_09_2"><text>-</text></inputEntry>
+        <inputEntry id="unary_income_loss_09_3"><text>-</text></inputEntry>
+        <inputEntry id="unary_income_loss_09_4"><text>-</text></inputEntry>
+        <inputEntry id="unary_income_loss_09_5"><text>-</text></inputEntry>
+        <inputEntry id="unary_income_loss_09_6"><text>-</text></inputEntry>
+        <inputEntry id="unary_income_loss_09_7"><text>-</text></inputEntry>
+        <inputEntry id="unary_income_loss_09_8"><text>-</text></inputEntry>
+        <outputEntry id="out_income_loss_09_1"><text>"INCOME_LOSS"</text></outputEntry>
+        <outputEntry id="out_income_loss_09_2"><text>3</text></outputEntry>
+        <outputEntry id="out_income_loss_09_3"><text>"Thu nhập giảm sút hoặc phát sinh chi phí y tế/sinh hoạt đột xuất."</text></outputEntry>
+        <outputEntry id="out_income_loss_09_4"><text>"RULE_INCOME_LOSS_DEFAULT_09"</text></outputEntry>
       </rule>
 
     </decisionTable>

@@ -125,14 +125,74 @@ class MockCoreBankingApiClient(CoreBankingApiClient):
         return list(self._loans.values())
 
     def fetch_customer_inflows(self, debtor_cif: str, months: int = 3) -> Dict[str, Any]:
-        """Giả lập phản hồi endpoint GET /core/v1/customers/{cif}/cashflows"""
+        """
+        Giả lập phản hồi endpoint GET /core/v1/customers/{cif}/cashflows.
+        Phân loại thực tế theo 4 nhóm đối tượng:
+        1. PAYROLL_INTERNAL (40%): Chi lương qua BIDV
+        2. MERCHANT_BUSINESS (30%): Hộ kinh doanh/tiểu thương (dòng tiền VietQR/POS hàng ngày, CASA đệm cao)
+        3. NON_PAYROLL_SALARIED (20%): Nhận lương ngân hàng khác (Vietcombank, Techcombank...)
+        4. GIG_FREELANCE (10%): Lao động tự do, thu nhập không định kỳ
+        """
+        cif_hash = sum(ord(c) for c in debtor_cif)
+        bucket = cif_hash % 10
+
+        if bucket < 4:
+            # Nhóm 1: Chi lương qua BIDV
+            has_payroll = True
+            archetype = "PAYROLL_INTERNAL"
+            bank_name = "BIDV"
+            salary_day = 5 + (cif_hash % 6)  # ngày 5 đến ngày 10
+            inferred_day = salary_day
+            inflow_avg = 22_000_000.0 + (cif_hash % 10) * 1_500_000.0
+            casa = 4_500_000.0 + (cif_hash % 8) * 1_000_000.0
+            buffer_ratio = round(casa / 5_000_000.0, 2)
+            stability = 0.90
+        elif bucket < 7:
+            # Nhóm 2: Hộ kinh doanh / Tiểu thương
+            has_payroll = False
+            archetype = "MERCHANT_BUSINESS"
+            bank_name = "NONE_MERCHANT"
+            salary_day = 0  # Không có ngày lương
+            inferred_day = 15  # Chu kỳ chốt sổ giữa tháng
+            inflow_avg = 45_000_000.0 + (cif_hash % 15) * 3_000_000.0
+            casa = 14_000_000.0 + (cif_hash % 20) * 1_500_000.0
+            buffer_ratio = round(casa / 5_000_000.0, 2)  # Đệm thường > 2.5x
+            stability = 0.75
+        elif bucket < 9:
+            # Nhóm 3: Nhận lương ngân hàng khác
+            has_payroll = False
+            archetype = "NON_PAYROLL_SALARIED"
+            bank_name = "VIETCOMBANK" if (cif_hash % 2 == 0) else "TECHCOMBANK"
+            salary_day = 0
+            inferred_day = 10 + (cif_hash % 5)  # Suy luận từ LOS/sao kê thẩm định
+            inflow_avg = 25_000_000.0 + (cif_hash % 8) * 2_000_000.0
+            casa = 3_000_000.0 + (cif_hash % 6) * 1_000_000.0
+            buffer_ratio = round(casa / 5_000_000.0, 2)
+            stability = 0.85
+        else:
+            # Nhóm 4: Lao động tự do
+            has_payroll = False
+            archetype = "GIG_FREELANCE"
+            bank_name = "FREELANCE"
+            salary_day = 0
+            inferred_day = None
+            inflow_avg = 18_000_000.0 + (cif_hash % 6) * 1_000_000.0
+            casa = 2_000_000.0 + (cif_hash % 4) * 800_000.0
+            buffer_ratio = round(casa / 5_000_000.0, 2)
+            stability = 0.60
+
         return {
             "status": "SUCCESS",
             "data": {
                 "debtor_cif": debtor_cif,
-                "verified_inflow_avg_monthly": 28500000.0,
-                "casa_balance": 15400000.0,
-                "salary_day_of_month": 10,
-                "stability_coefficient": 0.88
+                "verified_inflow_avg_monthly": inflow_avg,
+                "casa_balance": casa,
+                "salary_day_of_month": salary_day,
+                "stability_coefficient": stability,
+                "has_payroll_relationship": has_payroll,
+                "inflow_archetype": archetype,
+                "casa_buffer_ratio": buffer_ratio,
+                "inferred_pay_day_of_month": inferred_day,
+                "payroll_bank_name": bank_name
             }
         }
