@@ -1,6 +1,6 @@
 # B.COLLECTION — ĐỀ XUẤT KIẾN TRÚC TỔNG THỂ
 ### Hệ thống Quản lý & Tối ưu Thu hồi nợ trên nền Big Data – Graph – AI
-**Góc nhìn:** Enterprise Architect | **Phạm vi:** BIDV (bán lẻ + KHDN) | **Phiên bản:** v0.2 (bản đề xuất kiến trúc)
+**Góc nhìn:** Enterprise Architect | **Phạm vi:** Ngân hàng (Bán lẻ + KHDN) | **Phiên bản:** v0.2 (bản đề xuất kiến trúc)
 **Thay đổi so với v0.1:** bổ sung ML12 (Collector–Debtor Matching, Mục 8.1); `NO_ACTION` thành hành động hạng nhất trong NBA Engine (Mục 9.3); champion–challenger mở rộng sang cấp kịch bản đàm phán (Mục 9.4). Xem thêm nhật ký thay đổi ở Mục A10 của tài liệu Persona Model.
 
 ---
@@ -255,9 +255,9 @@ Chân dung không phải là "một bản mô tả", mà là một **vector đ�
 | **Cấm tuyệt đối** | Mua dữ liệu từ nguồn không rõ nguồn gốc; dùng tài khoản giả để kết bạn/thâm nhập; lấy dữ liệu sau tường đăng nhập; thu thập dữ liệu về người thân không có nghĩa vụ | Chặn ở kiến trúc, không có API để làm |
 
 ### 7.2 Về mạng xã hội — khuyến nghị thẳng thắn
-Việc tự động quét mạng xã hội cá nhân để phục vụ thu hồi nợ có 4 vấn đề mà tôi khuyến nghị BIDV không đánh đổi:
+Việc tự động quét mạng xã hội cá nhân để phục vụ thu hồi nợ có 4 vấn đề mà tôi khuyến nghị Ngân hàng không đánh đổi:
 1. **Pháp lý:** dữ liệu cá nhân trên mạng xã hội, dù công khai, vẫn là dữ liệu cá nhân theo pháp luật hiện hành; xử lý cần cơ sở pháp lý, mà "công khai" không đương nhiên là cơ sở đó.
-2. **Danh tiếng:** một bài đăng "BIDV theo dõi Facebook con nợ" đủ tạo khủng hoảng truyền thông vượt xa giá trị thu hồi.
+2. **Danh tiếng:** một bài đăng "Ngân hàng theo dõi Facebook con nợ" đủ tạo khủng hoảng truyền thông vượt xa giá trị thu hồi.
 3. **Chất lượng:** tỷ lệ khớp sai định danh trên mạng xã hội Việt Nam rất cao (trùng tên phổ biến) → dẫn tới liên hệ nhầm người, là rủi ro nghiêm trọng nhất trong collection.
 4. **ROI:** giá trị gia tăng thực tế thấp hơn nhiều so với việc làm sạch dữ liệu liên hệ nội bộ (Mục 4.3).
 
@@ -296,7 +296,7 @@ Toàn bộ pipeline chạy trong network zone riêng, không có đường ghi t
 
 **Về ML12 (bổ sung sau khi tham khảo tài liệu McKinsey 2018):** đây là mô hình **rẻ nhất** trong toàn danh mục — chỉ cần dữ liệu lịch sử "cán bộ × phân khúc × kết quả", không cần nguồn dữ liệu mới nào. Nhiều ngân hàng phân công case theo mức rủi ro và theo mức độ sẵn có của cán bộ chứ không ghép cặp có chủ đích; khi ghép cặp bằng dữ liệu, kết quả cải thiện và thời gian gọi giảm.
 
-**Ranh giới thiết kế bắt buộc:** ML12 ghép cặp theo **hiệu quả lịch sử đã quan sát được trên từng phân khúc**, tuyệt đối không theo "hồ sơ tính cách tương đồng" giữa cán bộ và khách hàng. Lý do: (a) mâu thuẫn với nguyên tắc không lập hồ sơ tâm lý trong Persona Model; (b) dữ liệu tính cách nhân viên là dữ liệu cá nhân có chủ thể là chính nhân viên, cần cơ sở pháp lý và DPIA riêng theo Luật BVDLCN 2025; (c) rủi ro tạo phân biệt đối xử trong phân công công việc. Nếu BIDV muốn làm phân tích nhân sự, đó phải là dự án riêng của Khối Nhân sự, không nhét vào B.Collection.
+**Ranh giới thiết kế bắt buộc:** ML12 ghép cặp theo **hiệu quả lịch sử đã quan sát được trên từng phân khúc**, tuyệt đối không theo "hồ sơ tính cách tương đồng" giữa cán bộ và khách hàng. Lý do: (a) mâu thuẫn với nguyên tắc không lập hồ sơ tâm lý trong Persona Model; (b) dữ liệu tính cách nhân viên là dữ liệu cá nhân có chủ thể là chính nhân viên, cần cơ sở pháp lý và DPIA riêng theo Luật BVDLCN 2025; (c) rủi ro tạo phân biệt đối xử trong phân công công việc. Nếu Ngân hàng muốn làm phân tích nhân sự, đó phải là dự án riêng của Khối Nhân sự, không nhét vào B.Collection.
 
 **Điểm kiến trúc quan trọng — ML9 (Uplift):** hầu hết hệ thống collection thất bại vì dùng mô hình *dự báo* (ai sẽ trả) thay vì mô hình *nhân quả* (hành động nào làm tăng khả năng trả). Kết quả là ngân hàng dồn nguồn lực vào nhóm dù sao cũng tự trả. Bắt buộc phải có **holdout group (control) 5–10%** không can thiệp hoặc can thiệp tối thiểu, duy trì liên tục, để đo uplift thực. Đây là điều kiện tiên quyết để chứng minh ROI của cả hệ thống.
 
@@ -365,7 +365,7 @@ Giải bằng **constrained optimization** (không phải chỉ ranking) — vì
 
 Giá trị của điều này đến từ hai phía: tiết kiệm chi phí liên hệ, và **giữ trải nghiệm khách hàng** — nhắc nợ một người vốn đã định trả vào ngày lương là hành động có giá trị âm. Tài liệu McKinsey mô tả một phân khúc "đãng trí" với can thiệp đề xuất là bỏ qua hoặc chỉ dùng tin nhắn thoại tự động vì nhóm này nhiều khả năng tự khỏi nợ, ước tính tiết kiệm 10% thời gian cán bộ; và nhận diện tự khỏi nợ sớm bằng mô hình ước tính tăng năng lực đội thu hồi 5–10%.
 
-> **Cảnh báo về mô hình vận hành:** cán bộ được giao chỉ tiêu theo *số cuộc gọi thực hiện* sẽ không bao giờ chấp nhận `NO_ACTION`. Nếu BIDV giữ nguyên cách giao chỉ tiêu hiện tại, tính năng này sẽ bị vô hiệu hoá trên thực tế dù đã code xong. Phải chuyển chỉ tiêu cán bộ sang **thu hồi ròng sau chi phí** hoặc **giá trị thu hồi trên mỗi giờ làm việc**, không phải khối lượng liên hệ. Đây là điều kiện tổ chức, không phải điều kiện kỹ thuật.
+> **Cảnh báo về mô hình vận hành:** cán bộ được giao chỉ tiêu theo *số cuộc gọi thực hiện* sẽ không bao giờ chấp nhận `NO_ACTION`. Nếu Ngân hàng giữ nguyên cách giao chỉ tiêu hiện tại, tính năng này sẽ bị vô hiệu hoá trên thực tế dù đã code xong. Phải chuyển chỉ tiêu cán bộ sang **thu hồi ròng sau chi phí** hoặc **giá trị thu hồi trên mỗi giờ làm việc**, không phải khối lượng liên hệ. Đây là điều kiện tổ chức, không phải điều kiện kỹ thuật.
 
 ### 9.4 Champion–Challenger
 
@@ -386,7 +386,7 @@ Bắt buộc có framework thử nghiệm ở **hai cấp độ**:
 
 Tài liệu McKinsey ghi nhận một tổ chức phát hành thẻ áp dụng quy trình này với 8 giả thuyết được kiểm chứng trên 200 cuộc gọi, trong đó bốn yếu tố hiệu quả nhất là: giải quyết vướng mắc về phương thức thanh toán (+15 điểm %), neo đàm phán ở số tiền đầy đủ (+14), nêu hệ quả có liên quan về mặt cảm xúc (+22), và tạo "ý định thực hiện" tức chốt cụ thể ngày và cách trả (+8).
 
-**Ba lưu ý khi áp dụng tại BIDV:**
+**Ba lưu ý khi áp dụng tại Ngân hàng:**
 1. **Mẫu 200 cuộc gọi cho 8 giả thuyết là nhỏ.** Coi kết quả trên là gợi ý giả thuyết để tự kiểm chứng, không phải mức kỳ vọng. Cần tính cỡ mẫu tối thiểu cho từng thử nghiệm.
 2. **Yếu tố "nêu hệ quả có liên quan về mặt cảm xúc" phải đi qua Content Filter.** Nêu chi phí lãi phạt tích luỹ hay rủi ro xử lý TSBĐ là hợp lệ và đúng là có sức nặng; nêu hệ quả liên quan đến gia đình, danh dự hay quan hệ xã hội thì không. Chỉ các mã trong enum `negotiation_lever` đã duyệt được phép đưa vào thử nghiệm.
 3. **Mọi kịch bản thử nghiệm phải được Compliance duyệt trước khi chạy**, không phải duyệt sau khi thấy kết quả tốt.
@@ -486,7 +486,7 @@ Cạm bẫy thứ ba là nghiêm trọng nhất: một hệ thống học máy s
 | Rule/Decision | Drools hoặc engine tự xây; UI cấu hình cho business |
 | Workflow | Temporal (khuyến nghị) hoặc Camunda 8 |
 | Backend | Java Spring Boot / Python FastAPI, gRPC nội bộ, REST ra ngoài |
-| Frontend | React + design system nội bộ BIDV |
+| Frontend | React + design system nội bộ Ngân hàng |
 | Hạ tầng | Kubernetes multi-AZ, service mesh, KMS/HSM |
 | Observability | OpenTelemetry, Prometheus, Grafana, ELK |
 

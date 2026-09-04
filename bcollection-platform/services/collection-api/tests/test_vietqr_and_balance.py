@@ -16,7 +16,7 @@ def test_vietqr_generation():
     
     assert res["bank_bin"] == "970418"
     assert res["amount"] == 3500000
-    assert res["short_url"].startswith("https://bidv.vn/c/")
+    assert res["short_url"].startswith("https://bank.vn/c/")
     assert len(res["token"]) == 8
     assert "TT DUP LOAN-123456" in res["transfer_content"]
 

@@ -161,7 +161,7 @@ def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo)
                 """, (
                     f"INT-{case_id}-01", case_id, "SMS", "Hệ thống Tự động (Batch)", days_ago_2,
                     "SMS_SENT", "SMS VietQR đã gửi", None, None,
-                    f"Gửi tin nhắn SMS Brandname BIDV kèm link VietQR nợ kỳ {c['overdue_amount']:,.0f} đ.",
+                    f"Gửi tin nhắn SMS Brandname Ngân hàng kèm link VietQR nợ kỳ {c['overdue_amount']:,.0f} đ.",
                     "TÍCH CỰC", "eyJhbGciOiJFUzI1NiJ9.g03_vietqr_audit_ok", now_str
                 ))
 

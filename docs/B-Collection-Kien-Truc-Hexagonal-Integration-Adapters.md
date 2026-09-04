@@ -1,6 +1,6 @@
 # B.COLLECTION — KIẾN TRÚC TÍCH HỢP HỆ THỐNG BACKEND (HEXAGONAL PORTS & ADAPTERS)
 ### Thiết kế Phân tách Độc lập Giữa Adapter Nghiệp vụ và Client Kết nối Backend (Core Banking, LOS, Messaging, CIC)
-**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — BIDV  
+**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — Ngân hàng  
 **Tác giả:** Lead Enterprise Architect  
 **Phiên bản:** v1.0 | **Ngày ban hành:** 02/09/2026
 
@@ -21,7 +21,7 @@ Trong các dự án ngân hàng trước đây, việc "Mock" thường bị nh�
    * Adapter không trực tiếp thực hiện gọi mạng hay lưu dữ liệu mock. Thay vào đó, Adapter gọi qua Interface `ApiClient`.
 3. **Khi Chuyển Từ Mock Sang Thật:**
    * **Mã nguồn Adapter và Core API GIỮ NGUYÊN 100%**.
-   * Chỉ cần thay đổi biến môi trường cấu hình (Ví dụ: `CORE_BANKING_MODE=http`, `CORE_BANKING_API_URL=https://esb.bidv.vn/api/core/v1`).
+   * Chỉ cần thay đổi biến môi trường cấu hình (Ví dụ: `CORE_BANKING_MODE=http`, `CORE_BANKING_API_URL=https://esb.bank.vn/api/core/v1`).
 
 ---
 
@@ -72,7 +72,7 @@ Trong các dự án ngân hàng trước đây, việc "Mock" thường bị nh�
 * **Cấu hình Go-Live:**
   ```bash
   CORE_BANKING_MODE=http
-  CORE_BANKING_API_URL=https://esb.bidv.vn/api/core/v1
+  CORE_BANKING_API_URL=https://esb.bank.vn/api/core/v1
   CORE_BANKING_API_KEY=secret_production_token
   ```
 
@@ -87,7 +87,7 @@ Trong các dự án ngân hàng trước đây, việc "Mock" thường bị nh�
 * **Cấu hình Go-Live:**
   ```bash
   LOS_MODE=http
-  LOS_API_URL=https://esb.bidv.vn/api/los/v1
+  LOS_API_URL=https://esb.bank.vn/api/los/v1
   LOS_API_KEY=secret_los_token
   ```
 
@@ -97,13 +97,13 @@ Trong các dự án ngân hàng trước đây, việc "Mock" thường bị nh�
 * **Thư mục:** `bcollection-platform/services/integration-adapters/src/messaging/`
 * **Hợp đồng Tuân thủ:** `IF-MSG-01.message-send.schema.json`
 * **Nghiệp vụ cốt lõi:**
-  * `send_sms_notification(phone, message, guardrail_token)`: Gửi SMS Brandname BIDV.
+  * `send_sms_notification(phone, message, guardrail_token)`: Gửi SMS Brandname Ngân hàng.
   * `send_zns_notification(phone, template_id, template_data, guardrail_token)`: Gửi Zalo ZNS kèm link VietQR.
   * **Ràng buộc cứng:** Bắt buộc phải có `guardrail_token` hợp lệ do L6 Guardrail cấp, nếu không hệ thống sẽ ném ngoại lệ và chặn gửi tin 100%.
 * **Cấu hình Go-Live:**
   ```bash
   MESSAGING_MODE=http
-  MSG_GATEWAY_URL=https://esb.bidv.vn/api/messaging/v1
+  MSG_GATEWAY_URL=https://esb.bank.vn/api/messaging/v1
   MSG_GATEWAY_KEY=secret_gateway_token
   ```
 
@@ -116,7 +116,7 @@ Trong các dự án ngân hàng trước đây, việc "Mock" thường bị nh�
 * **Cấu hình Go-Live:**
   ```bash
   CIC_MODE=http
-  CIC_GATEWAY_URL=https://esb.bidv.vn/api/cic/v1
+  CIC_GATEWAY_URL=https://esb.bank.vn/api/cic/v1
   CIC_GATEWAY_KEY=secret_cic_token
   ```
 

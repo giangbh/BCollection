@@ -6,7 +6,7 @@ class HoldoutManager:
     Quản lý phân bổ ngẫu nhiên có kiểm soát (Deterministic Hashing with Salt).
     Đảm bảo 10% khách hàng cố định thuộc nhóm Control (Holdout) và 90% thuộc nhóm Treated.
     """
-    def __init__(self, experiment_id: str = "EXP_B1_2026_Q4", salt: str = "BIDV_BCOLLECTION_SALT_v1", control_pct: int = 10):
+    def __init__(self, experiment_id: str = "EXP_B1_2026_Q4", salt: str = "BCOLLECTION_SALT_v1", control_pct: int = 10):
         self.experiment_id = experiment_id
         self.salt = salt
         self.control_pct = control_pct

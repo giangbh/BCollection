@@ -1,6 +1,6 @@
 # B.COLLECTION — SỔ TAY HƯỚNG DẪN SỬ DỤNG CHO NGƯỜI DÙNG CUỐI (END-USER USER GUIDE)
 ### Cẩm nang Thao tác Chi tiết theo 5 Vai trò Người dùng (Role-Based Operating Manual)
-**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — BIDV  
+**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — Ngân hàng  
 **Tác giả:** Lead Enterprise Architect & Tổ Công tác Triển khai  
 **Phiên bản:** v1.0 | **Ngày ban hành:** 01/09/2026
 
@@ -68,7 +68,7 @@ Tiếp nhận danh sách hồ sơ nợ B1 được phân công trong ngày, đ�
 ### 📋 Hướng dẫn thao tác chi tiết:
 
 #### Bước 1: Xem Danh sách Hồ sơ (Case Queue)
-1. Đăng nhập hệ thống tại địa chỉ: `https://bcollection.bidv.vn`.
+1. Đăng nhập hệ thống tại địa chỉ: `https://bcollection.bank.vn`.
 2. Trên màn hình chính, bảng bên trái hiển thị danh sách hồ sơ được phân bổ trong ngày:
    * **Cột Khách hàng/CIF:** Họ tên, số CIF và số điện thoại liên hệ.
    * **Cột DPD:** Số ngày quá hạn (Hiển thị nhãn xanh lá: DPD 1–10; nhãn vàng: DPD 11–20; nhãn đỏ: DPD 21–30).
@@ -171,7 +171,7 @@ Quản lý chính sách tuân thủ dạng dữ liệu (Policy-as-Code), kiểm 
   2. Thay đổi tham số trực tiếp trên giao diện:
      * *Khung giờ bắt đầu:* `07:00` $\rightarrow$ *Khung giờ kết thúc:* `20:00`.
      * *Hạn mức gọi tối đa:* `3 lần/ngày`.
-  3. Cắm Token Chữ ký số PKI / SmartOTP nội bộ BIDV $\rightarrow$ Bấm **[KÝ SỐ VÀ PHÁT HÀNH POLICY]**.
+  3. Cắm Token Chữ ký số PKI / SmartOTP nội bộ Ngân hàng $\rightarrow$ Bấm **[KÝ SỐ VÀ PHÁT HÀNH POLICY]**.
   4. Hệ thống sẽ tự động cập nhật file chính sách `current.yaml` $\rightarrow$ **Toàn bộ hệ thống áp dụng ngay lập tức mà không cần khởi động lại máy chủ**.
 
 #### 2. Kiểm toán Độc lập Sổ cái Hash-Chain

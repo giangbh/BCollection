@@ -19,7 +19,7 @@ Chỉ có **một** cách tạo ra bằng chứng nhân quả đáng tin cậy: 
 
 ## 1. Vì sao so sánh trước–sau luôn sai
 
-Sáu nguồn nhiễu, tất cả đều hiện diện trong bối cảnh BIDV:
+Sáu nguồn nhiễu, tất cả đều hiện diện trong bối cảnh Ngân hàng:
 
 | # | Nguồn nhiễu | Biểu hiện |
 |---|---|---|
@@ -61,7 +61,7 @@ Toàn bộ khách hàng đủ điều kiện vào phạm vi thí nghiệm
 Một khách hàng có thể có nhiều khoản nợ. Nếu randomize theo khoản nợ, cùng một người vừa nhận treatment mới vừa nhận treatment cũ — hai nhóm nhiễm chéo nhau và kết quả không diễn giải được. Randomize ở mức khách hàng, phân tích ở mức khách hàng.
 
 **(b) Nhóm đối chứng nhận quy trình hiện hành, KHÔNG bị bỏ mặc.**
-Đây là điểm phải nói rõ với Ban Lãnh đạo ngay từ đầu, vì phản đối lớn nhất sẽ là *"sao lại bỏ mặc 10% khách hàng?"*. Nhóm đối chứng được thu hồi đúng như cách BIDV đang làm hôm nay — không tệ hơn hiện trạng một chút nào. Câu hỏi thí nghiệm là *"hệ thống mới có tốt hơn cách làm hiện tại không"*, không phải *"làm gì đó có tốt hơn không làm gì không"*.
+Đây là điểm phải nói rõ với Ban Lãnh đạo ngay từ đầu, vì phản đối lớn nhất sẽ là *"sao lại bỏ mặc 10% khách hàng?"*. Nhóm đối chứng được thu hồi đúng như cách Ngân hàng đang làm hôm nay — không tệ hơn hiện trạng một chút nào. Câu hỏi thí nghiệm là *"hệ thống mới có tốt hơn cách làm hiện tại không"*, không phải *"làm gì đó có tốt hơn không làm gì không"*.
 
 **(c) Phân bổ phân tầng (stratified), không ngẫu nhiên thuần.**
 Phân tầng theo: bucket DPD × phân khúc sản phẩm × dải dư nợ × chi nhánh. Với cỡ mẫu vừa phải, ngẫu nhiên thuần có thể tạo ra hai nhóm lệch nhau đáng kể. Phân tầng loại bỏ rủi ro đó và tăng độ nhạy của phép đo.
@@ -148,7 +148,7 @@ Với α = 0,05 và power 80%: `(z_{α/2} + z_β)² ≈ 7,85`
 
 ### 4.2 Ví dụ minh hoạ
 
-Giả định (cần thay bằng số thực của BIDV):
+Giả định (cần thay bằng số thực của Ngân hàng):
 - Số case quá hạn mới mỗi tháng ở phân khúc bán lẻ B1: **20.000**
 - NCV₉₀ trung bình: **3,0 triệu đồng**, độ lệch chuẩn **6,0 triệu**
 - Hiệu ứng tối thiểu đáng quan tâm (MDE): **+5%**, tức δ = 0,15 triệu
@@ -186,7 +186,7 @@ Chi phí năm  = khấu hao đầu tư (phần mềm, hạ tầng, triển khai)
 
 **Chi phí cơ hội của holdout** = uplift × số case trong nhóm đối chứng. Phải đưa vào mô hình ROI một cách minh bạch, không giấu. Nó chính là **giá của việc biết sự thật** — và nên trình bày đúng như vậy: một khoản chi để mua thông tin đáng tin cậy, tương tự chi phí kiểm toán.
 
-Báo cáo lên Ban Lãnh đạo cần có: NPV 3 năm (chiết khấu theo chi phí vốn của BIDV), thời gian hoàn vốn, IRR, và **phân tích độ nhạy** với ba kịch bản uplift (biên dưới khoảng tin cậy / điểm ước lượng / biên trên). Trình bày biên dưới trước là cách xây dựng niềm tin tốt nhất.
+Báo cáo lên Ban Lãnh đạo cần có: NPV 3 năm (chiết khấu theo chi phí vốn của Ngân hàng), thời gian hoàn vốn, IRR, và **phân tích độ nhạy** với ba kịch bản uplift (biên dưới khoảng tin cậy / điểm ước lượng / biên trên). Trình bày biên dưới trước là cách xây dựng niềm tin tốt nhất.
 
 ---
 
@@ -296,4 +296,4 @@ Hạng mục 1 là hạng mục có tính chặn cao nhất trong toàn dự án
 
 ---
 
-*Tài liệu phương pháp, phiên bản đề xuất. Các giả định định lượng ở Mục 4.2 là số minh hoạ, cần thay bằng dữ liệu thực tế của BIDV trước khi tính cỡ mẫu chính thức.*
+*Tài liệu phương pháp, phiên bản đề xuất. Các giả định định lượng ở Mục 4.2 là số minh hoạ, cần thay bằng dữ liệu thực tế của Ngân hàng trước khi tính cỡ mẫu chính thức.*

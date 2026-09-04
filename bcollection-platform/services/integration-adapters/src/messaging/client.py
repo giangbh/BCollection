@@ -6,7 +6,7 @@ class MessagingApiClient(ABC):
     Interface cấp thấp gửi tin nhắn qua SMS Gateway (VNPT/Viettel) hoặc Zalo ZNS Gateway.
     """
     @abstractmethod
-    def dispatch_sms(self, phone_e164: str, message: str, brandname: str = "BIDV") -> Dict[str, Any]:
+    def dispatch_sms(self, phone_e164: str, message: str, brandname: str = "BANK") -> Dict[str, Any]:
         pass
 
     @abstractmethod

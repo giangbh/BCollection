@@ -291,7 +291,7 @@ def transcribe_and_extract_call(case_id: str, payload: CallTranscribeRequest):
 
     if dpd <= 10:
         transcript = [
-            {"speaker": "RM", "text": f"Dạ em chào anh/chị {full_name}, em là chuyên viên quản lý nợ BIDV liên hệ về hợp đồng {loan_id} đang quá hạn {dpd} ngày với số tiền {overdue_amt:,.0f} VNĐ ạ."},
+            {"speaker": "RM", "text": f"Dạ em chào anh/chị {full_name}, em là chuyên viên quản lý nợ Ngân hàng liên hệ về hợp đồng {loan_id} đang quá hạn {dpd} ngày với số tiền {overdue_amt:,.0f} VNĐ ạ."},
             {"speaker": "CUSTOMER", "text": f"À chào em, mấy hôm vừa rồi anh đi công tác xa nên quên béng mất. Đến ngày 10 tới anh nhận lương sẽ chuyển khoản đủ {overdue_amt:,.0f} đồng qua SmartBanking nhé."},
             {"speaker": "RM", "text": f"Dạ vâng em đã ghi nhận lịch hẹn thanh toán vào ngày 10 tới. Em cảm ơn anh/chị nhiều ạ."}
         ]
@@ -308,7 +308,7 @@ def transcribe_and_extract_call(case_id: str, payload: CallTranscribeRequest):
     elif 11 <= dpd <= 20:
         half_amt = round(overdue_amt * 0.5, -4)
         transcript = [
-            {"speaker": "RM", "text": f"Chào anh/chị {full_name}, BIDV liên hệ về khoản vay {loan_id} đã quá hạn {dpd} ngày. Em gọi để trao đổi phương án hỗ trợ anh/chị thanh toán kỳ nợ này ạ."},
+            {"speaker": "RM", "text": f"Chào anh/chị {full_name}, Ngân hàng liên hệ về khoản vay {loan_id} đã quá hạn {dpd} ngày. Em gọi để trao đổi phương án hỗ trợ anh/chị thanh toán kỳ nợ này ạ."},
             {"speaker": "CUSTOMER", "text": f"Đợt này kinh doanh hàng họ chậm thu hồi tiền quá em ơi. Đến ngày 15 này anh gom được trước một nửa khoảng {half_amt:,.0f} đồng nộp trước được không em?"},
             {"speaker": "RM", "text": f"Dạ được anh ạ, em ghi nhận cam kết nộp trước {half_amt:,.0f} đồng vào ngày 15/09, phần còn lại chi nhánh sẽ hướng dẫn cơ cấu giãn tiếp ạ."}
         ]
@@ -324,7 +324,7 @@ def transcribe_and_extract_call(case_id: str, payload: CallTranscribeRequest):
 
     else:
         transcript = [
-            {"speaker": "RM", "text": f"Chào anh/chị {full_name}, BIDV thông báo khoản vay {loan_id} đã quá hạn {dpd} ngày và có nguy cơ chuyển nhóm nợ xấu trên CIC toàn quốc ạ."},
+            {"speaker": "RM", "text": f"Chào anh/chị {full_name}, Ngân hàng thông báo khoản vay {loan_id} đã quá hạn {dpd} ngày và có nguy cơ chuyển nhóm nợ xấu trên CIC toàn quốc ạ."},
             {"speaker": "CUSTOMER", "text": "Tôi đã bảo đợt này kẹt tiền không xoay kịp rồi mà cứ gọi giục suốt thế! Để cuối tháng xem thế nào rồi tính!"},
             {"speaker": "RM", "text": "Dạ ngân hàng rất thấu hiểu khó khăn của anh/chị, em xin phép lưu nhận thông tin và gửi văn bản hỗ trợ qua Zalo ạ."}
         ]
@@ -355,7 +355,7 @@ def transcribe_and_extract_call(case_id: str, payload: CallTranscribeRequest):
         "compliance_audit": {
             "status": "PASSED",
             "checks": [
-                "Xưng danh chuyên viên BIDV chuẩn mực",
+                "Xưng danh chuyên viên chuẩn mực",
                 "Tuyệt đối không dùng lời lẽ đe dọa hoặc từ cấm",
                 "Không tiết lộ thông tin cho người thứ ba",
                 "Khung giờ liên hệ hợp lệ (07:00–21:00)"

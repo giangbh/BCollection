@@ -32,8 +32,8 @@ ROOT_CAUSE_CONFIG = {
         "levers": ["vietqr_fast_link", "smartbanking_autopay", "sms_brandname_reminder"],
         "playbooks": [
             "Bận công tác quên lịch nộp: Gửi tin nhắn SMS Brandname kèm liên kết VietQR động để khách bấm trả ngay trên app.",
-            "Khách hàng sơ suất quên hạn: Kích hoạt tính năng trích nợ tự động (Auto-Debit) từ tài khoản thanh toán CASA BIDV.",
-            "Khách nhầm ngày sao kê: Hướng dẫn cài đặt thông báo nhắc nợ tự động qua BIDV SmartBanking trước 2 ngày."
+            "Khách hàng sơ suất quên hạn: Kích hoạt tính năng trích nợ tự động (Auto-Debit) từ tài khoản thanh toán CASA tại Ngân hàng.",
+            "Khách nhầm ngày sao kê: Hướng dẫn cài đặt thông báo nhắc nợ tự động qua Ngân hàng số trước 2 ngày."
         ]
     },
     "OVER_INDEBTED": {
@@ -42,7 +42,7 @@ ROOT_CAUSE_CONFIG = {
         "playbooks": [
             "Nợ nhiều tổ chức tín dụng (DSR > 70%): Tư vấn gom nợ, kéo dài thời hạn vay thêm 12 tháng để giảm số tiền phải trả mỗi tháng.",
             "Áp lực trả nợ thẻ tín dụng cao: Chuyển đổi toàn bộ dư nợ thẻ sang khoản vay trả góp cố định lãi suất ưu đãi.",
-            "Cảnh báo rủi ro nhảy nhóm nợ CIC toàn hệ thống nếu không ưu tiên thanh toán dứt điểm khoản vay tại BIDV."
+            "Cảnh báo rủi ro nhảy nhóm nợ CIC toàn hệ thống nếu không ưu tiên thanh toán dứt điểm khoản vay tại Ngân hàng."
         ]
     },
     "WILFUL_DEFAULT": {

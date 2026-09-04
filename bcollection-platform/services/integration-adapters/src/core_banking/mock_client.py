@@ -4,7 +4,7 @@ from .client import CoreBankingApiClient
 
 class MockCoreBankingApiClient(CoreBankingApiClient):
     """
-    Mock Service giả lập Backend API của Core Banking BIDV (SIBS / B-Connect ESB).
+    Mock Service giả lập Backend API của Core Banking (SIBS / B-Connect ESB).
     Trả về dữ liệu thô (Raw JSON Response) chuẩn hợp đồng IF-CORE-01 và IF-CORE-04.
     """
     def __init__(self):

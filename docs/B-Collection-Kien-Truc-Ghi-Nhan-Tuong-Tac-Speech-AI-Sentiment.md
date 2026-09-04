@@ -1,6 +1,6 @@
 # B.COLLECTION — KIẾN TRÚC TỰ ĐỘNG HÓA GHI NHẬN TƯƠNG TÁC (SPEECH AI & SENTIMENT INTELLIGENCE)
 ### Giải pháp Giảm 90% Thao tác Nhập tay của Chuyên viên, Phân tích Ghi âm, Bóc tách PTP & Đo lường Cảm xúc
-**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — BIDV  
+**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — Ngân hàng  
 **Tác giả:** Lead Enterprise Architect & Chief AI Scientist  
 **Phiên bản:** v1.0 | **Ngày ban hành:** 02/09/2026
 
@@ -57,7 +57,7 @@ Tương tác của khách hàng không chỉ có cuộc gọi thoại. Toàn b�
 │ TRỤ CỘT 1: KÊNH THOẠI (SPEECH AI) │       │ TRỤ CỘT 2: KÊNH SỐ (DIGITAL EVENTS│       │ TRỤ CỘT 3: HỆ THỐNG CORE & TÀI SẢN│
 ├───────────────────────────────────┤       ├───────────────────────────────────┤       ├───────────────────────────────────┤
 │ • Ghi âm 2 kênh độc lập (Stereo)  │       │ • Khách bấm link VietQR trên Zalo │       │ • Biến động số dư tài khoản Core  │
-│ • Speech-to-Text tiếng Việt       │       │ • Khách mở tin nhắn SMS thông báo │       │ • Tần suất mở App SmartBanking    │
+│ • Speech-to-Text tiếng Việt       │       │ • Khách mở tin nhắn SMS thông báo │       │ • Tần suất mở App Ngân hàng số    │
 │ • Tự bóc tách PTP (Tiền & Ngày)   │       │ • Khách quét mã QR thanh toán     │       │ • Cập nhật tình trạng trả nợ CIC  │
 │ • Tự phát hiện Nguyên nhân gốc    │       │ $\implies$ Tự động ghi nhận       │       │ $\implies$ Tự động đổi trạng thái │
 │ • Phân tích Cảm xúc & Từ cấm      │       │    Engagement không cần gõ        │       │    CURED ngay khi tiền vào        │
@@ -170,7 +170,7 @@ Hệ thống tự động quét transcript để phát hiện các tín hiệu n
 * **Từ khóa Dọa khiếu nại:** *"Tôi sẽ kiện ra tòa"*, *"Tôi sẽ gửi đơn lên Ngân hàng Nhà nước"*, *"Báo công an"*, *"Đăng mạng xã hội"*.
 * **Từ khóa Y tế / Khủng hoảng:** *"Tôi đang xạ trị ung thư"*, *"Gia đình vừa có tang"*, *"Không muốn sống nữa"*.
   $\implies$ **Hệ thống tự động bật cờ đỏ (Red Flag) và khóa tạm thời các chiến dịch gọi tự động**.
-* **Kiểm tra Chuyên viên:** Chuyên viên có xưng danh BIDV không? Có giải thích rõ khoản nợ không? Có dùng từ ngữ đe dọa không?
+* **Kiểm tra Chuyên viên:** Chuyên viên có xưng danh Ngân hàng không? Có giải thích rõ khoản nợ không? Có dùng từ ngữ đe dọa không?
 
 ---
 
@@ -206,7 +206,7 @@ Khi Chuyên viên bấm nút **[KẾT THÚC CUỘC GỌI]**, cửa sổ **Ghi nh
 
 ## 7. ĐỀ XUẤT LỰA CHỌN GIẢI PHÁP CÔNG NGHỆ (TECH STACK)
 
-Đối với một ngân hàng lớn như BIDV, **bảo mật dữ liệu âm thanh và bí mật ngân hàng là tối thượng** (Không được gửi file ghi âm cuộc gọi lên Cloud nước ngoài như OpenAI/Google Cloud).
+Đối với một ngân hàng lớn như Ngân hàng, **bảo mật dữ liệu âm thanh và bí mật ngân hàng là tối thượng** (Không được gửi file ghi âm cuộc gọi lên Cloud nước ngoài như OpenAI/Google Cloud).
 
 ```
 ┌──────────────────────────┬───────────────────────────────────────────┬─────────────────────────────────┐
@@ -231,7 +231,7 @@ Khi Chuyên viên bấm nút **[KẾT THÚC CUỘC GỌI]**, cửa sổ **Ghi nh
 
 ---
 
-## 🚀 8. KẾ HOẠCH TRIỂN KHAI 2 PHA CHO BIDV
+## 🚀 8. KẾ HOẠCH TRIỂN KHAI 2 PHA CHO NGÂN HÀNG
 
 1. **Pha 1 (Pilot MVP - 2 Tháng):**
    * Triển khai mô hình **Whisper Fine-tuned** chuyển audio thành text sau cuộc gọi.
@@ -239,5 +239,5 @@ Khi Chuyên viên bấm nút **[KẾT THÚC CUỘC GỌI]**, cửa sổ **Ghi nh
    * Đo lường: Rút ngắn thời gian Wrap-up từ 180s xuống **30s**.
 2. **Pha 2 (Toàn hàng - Scale Production):**
    * Triển khai cụm **Local LLM 7B/8B On-premise** để tóm tắt hội thoại tự động, chấm điểm cảm xúc (Sentiment) và phát hiện từ cấm tuân thủ thời gian thực.
-   * Tích hợp Webhook kênh số (Zalo/VietQR/SmartBanking) đồng bộ tức thì vào Persona 360.
+   * Tích hợp Webhook kênh số (Zalo/VietQR/Ngân hàng số) đồng bộ tức thì vào Persona 360.
    * Thời gian Wrap-up giảm tối đa còn **10s**!

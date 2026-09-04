@@ -338,7 +338,7 @@ Viết `test_bypass_attempts.py` **trước khi** viết Guardrail là có chủ
 
 | # | Câu hỏi | Người quyết |
 |---|---|---|
-| 1 | Nền tảng Git của BIDV (GitLab/GitHub Enterprise/Bitbucket) và cơ chế phân quyền repo | Khối CNTT |
+| 1 | Nền tảng Git của Ngân hàng (GitLab/GitHub Enterprise/Bitbucket) và cơ chế phân quyền repo | Khối CNTT |
 | 2 | Compliance Officer có tài khoản Git và được đào tạo review MR không? | Compliance + CNTT |
 | 3 | Cơ chế ký số policy file — dùng PKI nội bộ nào? | Bảo mật |
 | 4 | Chính sách dữ liệu cho môi trường UAT — ai duyệt bộ dữ liệu ẩn danh? | DPO |
@@ -348,4 +348,4 @@ Câu 2 quan trọng hơn vẻ ngoài. Toàn bộ thiết kế kiểm soát dựa
 
 ---
 
-*Đề xuất cấu trúc repo, phiên bản thảo luận. Cần đối chiếu với chuẩn phát triển phần mềm và quy định quản lý mã nguồn nội bộ của BIDV.*
+*Đề xuất cấu trúc repo, phiên bản thảo luận. Cần đối chiếu với chuẩn phát triển phần mềm và quy định quản lý mã nguồn nội bộ của Ngân hàng.*

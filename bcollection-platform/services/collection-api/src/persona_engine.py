@@ -102,9 +102,9 @@ class D2WillingnessEngine:
         # Self-cure
         s_self_cure = self_cure_propensity * 100.0
 
-        # Priority (Nếu trả bank khác mà nợ BIDV -> phạt nặng)
+        # Priority (Nếu trả bank khác mà nợ Ngân hàng -> phạt nặng)
         if paying_other_banks_while_overdue:
-            s_priority = 15.0  # Cố tình xếp BIDV sau cùng
+            s_priority = 15.0  # Cố tình xếp Ngân hàng sau cùng
         else:
             s_priority = 85.0
 
@@ -117,7 +117,7 @@ class D2WillingnessEngine:
 
         drivers = []
         if paying_other_banks_while_overdue:
-            drivers.append("Cảnh báo: Đang trả nợ TCTD khác trong khi nợ BIDV")
+            drivers.append("Cảnh báo: Đang trả nợ TCTD khác trong khi nợ Ngân hàng")
         else:
             drivers.append(f"Tỷ lệ giữ cam kết hẹn trả (PTP Kept) {ptp_kept_rate*100:.0f}%")
 

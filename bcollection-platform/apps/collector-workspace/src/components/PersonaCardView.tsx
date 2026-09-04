@@ -476,7 +476,7 @@ export const PersonaCardView: React.FC<PersonaCardViewProps> = ({
                         </div>
                         <div>
                           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
-                            {item.channel === 'VOICE' ? 'Cuộc gọi đàm phán nợ' : 'SMS Brandname BIDV'}
+                            {item.channel === 'VOICE' ? 'Cuộc gọi đàm phán nợ' : 'SMS Brandname Ngân hàng'}
                           </span>
                           <span style={{ fontSize: '11px', color: 'var(--text-sub)', marginLeft: '8px' }}>
                             • {item.collector_name}

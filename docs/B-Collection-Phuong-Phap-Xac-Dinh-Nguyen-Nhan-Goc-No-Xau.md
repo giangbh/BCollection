@@ -1,6 +1,6 @@
 # B.COLLECTION — ĐẶC TẢ THIẾT KẾ PHƯƠNG PHÁP XÁC ĐỊNH NGUYÊN NHÂN GỐC CỦA NỢ (ROOT CAUSE IDENTIFICATION BLUEPRINT)
 ### Cơ chế 3 Tầng Tích hợp (3-Tier Engine): Suy luận Số liệu (Pre-call), Xử lý Hội thoại (Speech AI), & Xác thực Thủ công (Manual Enrichment)
-**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — BIDV  
+**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — Ngân hàng  
 **Tác giả:** Lead Enterprise Architect & Chief Data Scientist  
 **Phiên bản:** v1.0 | **Ngày ban hành:** 01/09/2026
 
@@ -68,8 +68,8 @@ Hệ thống quản lý nguyên nhân nợ theo danh mục đóng 13 loại, lo�
 │ 10 │ `COLLATERAL_ISSUE`       │ Vướng mắc tranh chấp pháp lý tài sản thế chấp (nhà đất, xe ô tô) │ Tranh chấp quyền sở hữu,    │
 │    │                          │                                                                  │ tài sản bị cơ quan khác phong tỏa│
 ├────┼──────────────────────────┼──────────────────────────────────────────────────────────────────┼─────────────────────────────┤
-│ 11 │ `WILFUL_DEFAULT`         │ Có khả năng trả nhưng cố tình chây ỳ, né tránh trả nợ BIDV.      │ Đang trả đều các bank khác  │
-│    │                          │ *(Bắt buộc bằng chứng định lượng & duyệt 4 mắt)*                 │ nhưng chặn số né tránh BIDV.│
+│ 11 │ `WILFUL_DEFAULT`         │ Có khả năng trả nhưng cố tình chây ỳ, né tránh trả nợ Ngân hàng.      │ Đang trả đều các bank khác  │
+│    │                          │ *(Bắt buộc bằng chứng định lượng & duyệt 4 mắt)*                 │ nhưng chặn số né tránh Ngân hàng.│
 ├────┼──────────────────────────┼──────────────────────────────────────────────────────────────────┼─────────────────────────────┤
 │ 12 │ `UNREACHABLE`            │ Mất liên lạc hoàn toàn, tất cả các số điện thoại đều thuê bao.   │ 0 RPC trong 60 ngày dù gọi  │
 │    │                          │                                                                  │ ≥ 8 lần qua tất cả các kênh.│
@@ -115,7 +115,7 @@ Hàng đêm, luồng xử lý dữ liệu tự động (*dbt & Rule Engine*) qu�
        ▼                               ▼                               ▼                               ▼
 ┌───────────────────────────────┐┌───────────────────────────────┐┌───────────────────────────────┐┌───────────────────────────────┐
 │ 1. DÒNG TIỀN CORE BANKING     ││ 2. TÍN HIỆU CIC TOÀN NGÀNH    ││ 3. DƯ ĐỊA SỐ DƯ TIẾT KIỆM/CASA││ 4. LỊCH SỬ DPD & SẢN PHẨM     │
-│ • Ngày lương > Ngày hạn nợ    ││ • Trả bank khác, nợ BIDV      ││ • Số dư CASA > 2x Nghĩa vụ   ││ • DPD 1–5 + Thẻ tín dụng      │
+│ • Ngày lương > Ngày hạn nợ    ││ • Trả bank khác, nợ Ngân hàng      ││ • Số dư CASA > 2x Nghĩa vụ   ││ • DPD 1–5 + Thẻ tín dụng      │
 │ $\implies$ `CASHFLOW_TIMING`  ││   $\implies$ `WILFUL_DEFAULT` ││   $\implies$ `FORGOT_OR_ADMIN`││   $\implies$ `FORGOT_OR_ADMIN`│
 │ • Inflow giảm >50%            ││ • Mở mới ≥3 thẻ, DTI > 70%   ││ • Số dư = 0 liên tục 3 tháng ││ • DPD 11–18 + Vay thế chấp   │
 │   $\implies$ `INCOME_LOSS`    ││   $\implies$ `OVER_INDEBTED`  ││   $\implies$ `INCOME_LOSS`    ││   $\implies$ `BUSINESS_DOWNTURN│
@@ -127,7 +127,7 @@ Hàng đêm, luồng xử lý dữ liệu tự động (*dbt & Rule Engine*) qu�
    * *Thuật toán:* Trích xuất các giao dịch ghi có tài khoản có nội dung `LUONG`, `SALARY`, `PAYROLL` hoặc nguồn tiền từ tài khoản tổ chức.
    * *Quy tắc:* Nếu $Day(\text{Lương}) > Day(\text{Hạn nợ})$ $\implies$ Tự động gán `CASHFLOW_TIMING` với độ tin cậy $Confidence = 4$.
 2. **Phân tích Tín hiệu CIC Chéo (Cross-Bank CIC Signals):**
-   * *Quy tắc 1 (Cố tình chây ỳ):* Khách hàng có lịch sử trả nợ đầy đủ, không quá hạn tại Ngân hàng A, Ngân hàng B trong 3 tháng qua, nhưng lại để quá hạn nhóm B1 tại BIDV $\implies$ Gợi ý cờ nghi vấn `WILFUL_DEFAULT` (Tín hiệu chọn lọc ưu tiên).
+   * *Quy tắc 1 (Cố tình chây ỳ):* Khách hàng có lịch sử trả nợ đầy đủ, không quá hạn tại Ngân hàng A, Ngân hàng B trong 3 tháng qua, nhưng lại để quá hạn nhóm B1 tại Ngân hàng $\implies$ Gợi ý cờ nghi vấn `WILFUL_DEFAULT` (Tín hiệu chọn lọc ưu tiên).
    * *Quy tắc 2 (Quá tải nợ):* Khách hàng mở thêm 3 thẻ tín dụng mới trong 6 tháng và tổng DTI $> 70\%$ $\implies$ Tự động gán `OVER_INDEBTED`.
 3. **Phân tích Dư địa Tài chính & Số dư CASA:**
    * Khách hàng có số dư tiền gửi tiết kiệm hoặc tài khoản thanh toán $> 2 \times \text{Số tiền nợ gốc lãi}$ nhưng vẫn quá hạn DPD 1–3 ngày $\implies$ Tự động gán `FORGOT_OR_ADMIN`.

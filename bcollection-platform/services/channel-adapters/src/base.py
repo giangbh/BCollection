@@ -43,7 +43,7 @@ class MockSMSChannelAdapter(BaseChannelAdapter):
     def _dispatch_to_gateway(self, request_payload: Dict[str, Any], token_payload: Dict[str, Any]) -> Dict[str, Any]:
         recipient = request_payload.get("recipient_phone_e164")
         template_id = request_payload.get("template_id", "SMS_B1_STANDARD")
-        vietqr_link = request_payload.get("payment_link", "https://bidv.vn/c/tkn9982")
+        vietqr_link = request_payload.get("payment_link", "https://bank.vn/c/tkn9982")
 
         return {
             "status": "SENT",
@@ -62,7 +62,7 @@ class MockZNSChannelAdapter(BaseChannelAdapter):
     def _dispatch_to_gateway(self, request_payload: Dict[str, Any], token_payload: Dict[str, Any]) -> Dict[str, Any]:
         recipient = request_payload.get("recipient_phone_e164")
         template_id = request_payload.get("template_id", "ZNS_B1_VIETQR")
-        vietqr_link = request_payload.get("payment_link", "https://bidv.vn/c/tkn9982")
+        vietqr_link = request_payload.get("payment_link", "https://bank.vn/c/tkn9982")
 
         return {
             "status": "SENT",

@@ -13,7 +13,7 @@ class HttpMessagingApiClient(MessagingApiClient):
         api_key: Optional[str] = None,
         timeout_seconds: int = 5
     ):
-        self.base_url = (base_url or os.getenv("MSG_GATEWAY_URL", "https://esb.bidv.vn/api/messaging/v1")).rstrip("/")
+        self.base_url = (base_url or os.getenv("MSG_GATEWAY_URL", "https://esb.bank.vn/api/messaging/v1")).rstrip("/")
         self.api_key = api_key or os.getenv("MSG_GATEWAY_KEY", "")
         self.timeout = timeout_seconds
 
@@ -34,7 +34,7 @@ class HttpMessagingApiClient(MessagingApiClient):
         except urllib.error.URLError as e:
             raise ConnectionError(f"Không thể kết nối tới SMS/ZNS Gateway tại {url}: {str(e)}")
 
-    def dispatch_sms(self, phone_e164: str, message: str, brandname: str = "BIDV") -> Dict[str, Any]:
+    def dispatch_sms(self, phone_e164: str, message: str, brandname: str = "BANK") -> Dict[str, Any]:
         return self._make_request("sms/send", {
             "phone_e164": phone_e164,
             "message": message,

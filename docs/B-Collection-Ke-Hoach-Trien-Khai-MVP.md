@@ -1,6 +1,6 @@
 # B.COLLECTION — KẾ HOẠCH TRIỂN KHAI GIAI ĐOẠN MVP (16 TUẦN / 8 SPRINTS)
 ### Bản Kế hoạch Thực thi Chi tiết: Tối ưu Tốc độ, Quản trị Rủi ro & Chứng minh Hiệu quả Kinh tế (ROI)
-**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — BIDV  
+**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — Ngân hàng  
 **Giai đoạn:** MVP (Tháng 1 – 4) | **Quy mô:** Khối Bán lẻ (Nhóm nợ B1: DPD 1–30)  
 **Tác giả:** Lead Enterprise Architect & Project Taskforce  
 **Phiên bản:** v1.0 (Bản chuẩn phê duyệt triển khai)

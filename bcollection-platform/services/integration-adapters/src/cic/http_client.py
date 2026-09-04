@@ -13,7 +13,7 @@ class HttpCICApiClient(CICApiClient):
         api_key: Optional[str] = None,
         timeout_seconds: int = 5
     ):
-        self.base_url = (base_url or os.getenv("CIC_GATEWAY_URL", "https://esb.bidv.vn/api/cic/v1")).rstrip("/")
+        self.base_url = (base_url or os.getenv("CIC_GATEWAY_URL", "https://esb.bank.vn/api/cic/v1")).rstrip("/")
         self.api_key = api_key or os.getenv("CIC_GATEWAY_KEY", "")
         self.timeout = timeout_seconds
 

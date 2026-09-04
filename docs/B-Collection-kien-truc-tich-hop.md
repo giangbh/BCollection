@@ -46,7 +46,7 @@
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ HỆ THỐNG NỘI BỘ LIÊN QUAN: KHLQ (graph) · CreditAgent (LLM GW, audit)     │
 │ AML/Fraud · GL/Kế toán · ECM (lưu trữ chứng từ) · HRM (dữ liệu cán bộ)    │
-│ Kênh số (SmartBanking) · SMS/ZNS Gateway · Hệ thống bán nợ / AMC          │
+│ Kênh số (Ngân hàng số) · SMS/ZNS Gateway · Hệ thống bán nợ / AMC          │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -156,7 +156,7 @@ Ranh giới cần giữ (nguyên tắc I4): B.Collection giữ dữ liệu ở m
 | **Contact Center / CTI** | `IF-CC-01` | Ghi | Lệnh gọi có `guardrail_token`; screen-pop Persona Card | GĐ2 |
 | | `IF-CC-02` | Đọc | Kết quả cuộc gọi, ghi âm, thời lượng | GĐ2 |
 | **SMS / ZNS Gateway** | `IF-MSG-01` | Ghi | Gửi tin nhắn có token; nhận trạng thái gửi | ✓ |
-| **Kênh số (SmartBanking)** | `IF-DIG-01` | Đọc | Tần suất đăng nhập (tín hiệu "còn hoạt động") | ✓ |
+| **Kênh số (Ngân hàng số)** | `IF-DIG-01` | Đọc | Tần suất đăng nhập (tín hiệu "còn hoạt động") | ✓ |
 | | `IF-DIG-02` | Ghi | Thông báo in-app, kênh tự phục vụ trả nợ | GĐ2 |
 | **AML / Fraud** | `IF-FRD-01` | Đọc | Cờ nghi ngờ gian lận → tách luồng xử lý riêng | GĐ2 |
 | **GL / Kế toán** | `IF-GL-01` | Đọc | Xác nhận trích lập khoản bồi thường (G09, 12 tháng lương tối thiểu) | GĐ3 |
@@ -357,7 +357,7 @@ Lưu ý: MVP **không tích hợp EWS**. Không phải vì EWS không quan trọ
 
 | # | Hạng mục | Chủ trì | Hạn |
 |---|---|---|---|
-| 1 | Kiểm kê hệ thống thực tế của BIDV và ánh xạ vào danh mục interface này | EA + Khối CNTT | Tuần 2 |
+| 1 | Kiểm kê hệ thống thực tế của Ngân hàng và ánh xạ vào danh mục interface này | EA + Khối CNTT | Tuần 2 |
 | 2 | **Khảo sát chất lượng dữ liệu `IF-LOS-02`** (bảo lãnh, đồng vay) | Data Engineer | Tuần 3 |
 | 3 | Xác nhận Core có hỗ trợ event thanh toán real-time không (`IF-CORE-04`) | Khối CNTT | Tuần 2 |
 | 4 | Chốt ranh giới EWS ↔ B.Collection theo 4 câu hỏi Mục 5.3 | Ban Điều hành | Tháng 2 |
@@ -368,4 +368,4 @@ Lưu ý: MVP **không tích hợp EWS**. Không phải vì EWS không quan trọ
 
 ---
 
-*Tài liệu kiến trúc tích hợp, phiên bản đề xuất. Danh mục hệ thống dựa trên mô hình ứng dụng ngân hàng phổ biến — cần đối chiếu với bản đồ ứng dụng thực tế của BIDV và điều chỉnh tương ứng.*
+*Tài liệu kiến trúc tích hợp, phiên bản đề xuất. Danh mục hệ thống dựa trên mô hình ứng dụng ngân hàng phổ biến — cần đối chiếu với bản đồ ứng dụng thực tế của Ngân hàng và điều chỉnh tương ứng.*

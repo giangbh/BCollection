@@ -47,7 +47,7 @@ Guardrail Service là tầng L6 — chạy **cắt ngang** giữa tầng Quyết
 
 ## 3. Cơ sở pháp lý — ma trận ánh xạ
 
-| Mã | Control | Văn bản | Tình trạng áp dụng với BIDV |
+| Mã | Control | Văn bản | Tình trạng áp dụng với Ngân hàng |
 |---|---|---|---|
 | G01 | Tính hợp lệ của khoản nợ | Bộ luật Dân sự 2015, TT 39/2016/TT-NHNN | **Bắt buộc** |
 | G02 | Đối tượng được liên hệ | NĐ 117/2018/NĐ-CP (bí mật thông tin KH); TT 43/2016 sđ bởi TT 18/2019 | NĐ 117 **bắt buộc**; TT 18 **tự áp** 🔶 |
@@ -63,9 +63,9 @@ Guardrail Service là tầng L6 — chạy **cắt ngang** giữa tầng Quyết
 | G12 | Nhật ký & lưu trữ | NĐ 356/2025 (hồ sơ vi phạm lưu tối thiểu 5 năm) | **Bắt buộc** |
 | — | Cấm dịch vụ đòi nợ thuê | Luật Đầu tư 2020 | **Bắt buộc** — ràng buộc ở tầng mô hình vận hành, không phải runtime |
 
-> **Ghi chú quan trọng về G04/G05:** Thông tư 43/2016 sửa đổi bởi Thông tư 18/2019 điều chỉnh hoạt động cho vay tiêu dùng của **công ty tài chính**, không áp trực tiếp cho ngân hàng thương mại. Thông tư 39/2016 — văn bản điều chỉnh hoạt động cho vay của TCTD — không hạn chế biện pháp, hình thức, cách thức thu nợ. Do đó ngưỡng tần suất và khung giờ trong đặc tả này là **chuẩn nội bộ BIDV tự áp**. Khuyến nghị lấy TT 18/2019 làm sàn tối thiểu vì đây là mức mà cơ quan quản lý đã thể hiện quan điểm.
+> **Ghi chú quan trọng về G04/G05:** Thông tư 43/2016 sửa đổi bởi Thông tư 18/2019 điều chỉnh hoạt động cho vay tiêu dùng của **công ty tài chính**, không áp trực tiếp cho ngân hàng thương mại. Thông tư 39/2016 — văn bản điều chỉnh hoạt động cho vay của TCTD — không hạn chế biện pháp, hình thức, cách thức thu nợ. Do đó ngưỡng tần suất và khung giờ trong đặc tả này là **chuẩn nội bộ Ngân hàng tự áp**. Khuyến nghị lấy TT 18/2019 làm sàn tối thiểu vì đây là mức mà cơ quan quản lý đã thể hiện quan điểm.
 >
-> **Ràng buộc kèm theo:** TT 18/2019 yêu cầu hình thức và thời gian nhắc nợ phải được **thỏa thuận trong hợp đồng**. Nếu BIDV tự áp chuẩn này, phải bổ sung điều khoản tương ứng vào mẫu hợp đồng tín dụng. Đây là công việc của Pháp chế, cần khởi động song song với phát triển hệ thống — thời gian sửa mẫu biểu thường dài hơn thời gian code.
+> **Ràng buộc kèm theo:** TT 18/2019 yêu cầu hình thức và thời gian nhắc nợ phải được **thỏa thuận trong hợp đồng**. Nếu Ngân hàng tự áp chuẩn này, phải bổ sung điều khoản tương ứng vào mẫu hợp đồng tín dụng. Đây là công việc của Pháp chế, cần khởi động song song với phát triển hệ thống — thời gian sửa mẫu biểu thường dài hơn thời gian code.
 
 ---
 
@@ -687,7 +687,7 @@ Chỉ số `G02_NO_LEGAL_BASIS` là chỉ số văn hoá, không phải chỉ s�
 
 | # | Câu hỏi | Ảnh hưởng |
 |---|---|---|
-| 1 | BIDV có tự áp chuẩn TT 18/2019 không? Ở mức nào? | Ngưỡng G04, G05 |
+| 1 | Ngân hàng có tự áp chuẩn TT 18/2019 không? Ở mức nào? | Ngưỡng G04, G05 |
 | 2 | Nếu có, kế hoạch bổ sung điều khoản nhắc nợ vào mẫu hợp đồng tín dụng? | Điều kiện tiên quyết để G04/G05 có hiệu lực pháp lý |
 | 3 | Email và in-app notification có thuộc phạm vi "nhắc nợ" cần giới hạn khung giờ không? | G05 |
 | 4 | Số ngày SLA phản hồi yêu cầu chủ thể dữ liệu theo NĐ 356/2025? | G03 |
@@ -700,4 +700,4 @@ Chỉ số `G02_NO_LEGAL_BASIS` là chỉ số văn hoá, không phải chỉ s�
 
 ---
 
-*Đặc tả kỹ thuật, phiên bản đề xuất. Các ngưỡng là giá trị khởi tạo, cần hiệu chỉnh trên dữ liệu thực tế và theo quyết định chính sách của BIDV.*
+*Đặc tả kỹ thuật, phiên bản đề xuất. Các ngưỡng là giá trị khởi tạo, cần hiệu chỉnh trên dữ liệu thực tế và theo quyết định chính sách của Ngân hàng.*

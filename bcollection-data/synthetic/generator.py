@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 def generate_synthetic_delinquent_cases(num_cases: int = 500, seed: int = 42) -> List[Dict[str, Any]]:
     """
     Sinh dữ liệu tổng hợp (Synthetic Data) giả lập chuẩn cho môi trường DEV/UAT.
-    Hỗ trợ sinh 500+ hồ sơ nợ B1 đa dạng, chuẩn hoá format ngân hàng BIDV.
+    Hỗ trợ sinh 500+ hồ sơ nợ B1 đa dạng, chuẩn hoá format ngân hàng bán lẻ.
     Tuyệt đối không chứa PII thật.
     """
     rng = random.Random(seed)

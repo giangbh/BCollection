@@ -1,7 +1,7 @@
 # B.COLLECTION — KIẾN TRÚC MULTI-AGENT SYSTEM (MAS) & LỘ TRÌNH TRIỂN KHAI
 ### Hệ sinh thái Đa Tác tử AI Tự chủ, Hợp tác & Có kiểm soát trong Thu hồi nợ Bán lẻ (Bucket B1)
 **Tác giả & Thẩm định:** Enterprise Architecture & AI/ML Taskforce — Dự án B.Collection  
-**Áp dụng:** Ngân hàng TMCP Đầu tư và Phát triển Việt Nam (BIDV) — Khối Bán lẻ, Trung tâm Thu hồi nợ & Khối CNTT  
+**Áp dụng:** Ngân hàng Thương mại — Khối Bán lẻ, Trung tâm Thu hồi nợ & Khối CNTT  
 **Tiêu chuẩn tham chiếu:** BIAN (Banking Industry Architecture Network v12), TOGAF, Luật BVDLCN 91/2025/QH15, Luật Các TCTD 32/2024/QH15, Thông tư 18/2019/TT-NHNN, OWASP Top 10 for LLMs & AI Agents  
 **Phiên bản:** v1.0 (Enterprise Specification)  
 **Ngày phát hành:** Tháng 09/2026  
@@ -140,8 +140,8 @@ flowchart TB
   - **Phân tích Ngữ nghĩa (Semantic Signals):** Trích xuất sắc thái tâm lý từ các ghi chú của chuyên viên trong quá khứ (sự hợp tác, stress, né tránh, nghi ngờ lừa đảo).
   - **Tính toán Điểm số Động:** 
     - Tính $S_{D1}$ (Ability) theo tỷ lệ DSR thu nhập, dòng tiền lương thực nhận và số dư CASA đệm thanh khoản.
-    - Tính $S_{D2}$ (Willingness) phạt nặng hành vi trả nợ ngân hàng khác trong khi cố tình để nợ BIDV quá hạn (`paying_other_banks_while_overdue`).
-    - Tính $S_{D3}$ (Contactability) dựa trên tỷ lệ RPC và tần suất đăng nhập SmartBanking.
+    - Tính $S_{D2}$ (Willingness) phạt nặng hành vi trả nợ ngân hàng khác trong khi cố tình để nợ Ngân hàng quá hạn (`paying_other_banks_while_overdue`).
+    - Tính $S_{D3}$ (Contactability) dựa trên tỷ lệ RPC và tần suất đăng nhập Ngân hàng số.
   - **Phân loại Phân khúc:** Gán nhãn tự động vào Ma trận 2x2: `S1` (Tự khỏi cao), `S2` (Lệch dòng tiền), `S3` (Áp lực nợ/Chây ỳ), `S4` (Nguy cơ cao).
 
 ### 4.3. ♟️ Strategy & Playbook Synthesis Agent (Chiến lược Đàm phán & Đòn bẩy)
@@ -204,7 +204,7 @@ Tất cả các Agent giao tiếp qua định dạng JSON-RPC 2.0 có chữ ký 
     "debtor_cif": "CIF100423",
     "proposed_channel": "VOICE",
     "recommended_lever": "cic_downgrade_warning",
-    "pitch_script": "Kính chào anh/chị ĐẶNG KIM LAN, khoản vay thẻ tín dụng của anh/chị hiện quá hạn 29 ngày với số tiền 4.330.000đ. Nhằm tránh việc khoản nợ bị tự động phân loại sang Nhóm 3 trên Trung tâm Thông tin Tín dụng Quốc gia (CIC) ảnh hưởng trực tiếp đến các hồ sơ vay vốn trong tương lai, BIDV đề nghị anh/chị thu xếp thanh toán trước 17:00 hôm nay...",
+    "pitch_script": "Kính chào anh/chị ĐẶNG KIM LAN, khoản vay thẻ tín dụng của anh/chị hiện quá hạn 29 ngày với số tiền 4.330.000đ. Nhằm tránh việc khoản nợ bị tự động phân loại sang Nhóm 3 trên Trung tâm Thông tin Tín dụng Quốc gia (CIC) ảnh hưởng trực tiếp đến các hồ sơ vay vốn trong tương lai, Ngân hàng đề nghị anh/chị thu xếp thanh toán trước 17:00 hôm nay...",
     "concession_options": [
       {"action": "WAIVE_LATE_FEE", "requires_approval": false},
       {"action": "SPLIT_PAYMENT_2_TERMS", "requires_approval": true}
@@ -371,4 +371,4 @@ Dưới đây là đặc tả chuẩn JSON Schema để các LLM Agent gọi tr�
 ```
 
 ---
-*Tài liệu này là đặc tả kiến trúc chính thức của Dự án B.Collection, đóng vai trò kim chỉ nam kỹ thuật cho Khối CNTT và Khối Bán lẻ BIDV trong giai đoạn nâng cấp chuyển đổi số toàn diện hoạt động Thu hồi nợ.*
+*Tài liệu này là đặc tả kiến trúc chính thức của Dự án B.Collection, đóng vai trò kim chỉ nam kỹ thuật cho Khối CNTT và Khối Bán lẻ Ngân hàng trong giai đoạn nâng cấp chuyển đổi số toàn diện hoạt động Thu hồi nợ.*

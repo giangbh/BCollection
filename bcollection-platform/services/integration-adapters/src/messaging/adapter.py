@@ -31,7 +31,7 @@ class MessagingGatewayAdapter:
         phone_e164: str,
         message: str,
         guardrail_token: str,
-        brandname: str = "BIDV"
+        brandname: str = "BANK"
     ) -> Dict[str, Any]:
         """Gửi SMS Brandname nhắc nợ chuẩn IF-MSG-01 (Yêu cầu Guardrail Token)"""
         if not guardrail_token or not guardrail_token.startswith("ey"):

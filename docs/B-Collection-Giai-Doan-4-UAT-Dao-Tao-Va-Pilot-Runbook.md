@@ -1,6 +1,6 @@
 # B.COLLECTION — TÀI LIỆU GIAI ĐOẠN 4: UAT, ĐÀO TẠO SOP, PILOT ROLLOUT & ĐO LƯỜNG UPLIFT
 ### Cẩm nang Triển khai Nghiệm thu Nghiệp vụ, Vận hành Thực địa và Chứng minh Hiệu quả Kinh tế
-**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — BIDV  
+**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — Ngân hàng  
 **Giai đoạn:** Giai đoạn 4 (Tháng 4 / Sprint 7 & 8) | **Quy mô:** Pilot Bán lẻ B1 (DPD 1–30)  
 **Tác giả:** Lead Enterprise Architect, Khối Xử lý Nợ & Taskforce Dự án  
 **Phiên bản:** v1.0 (Bản chuẩn phát hành phục vụ UAT & Go-Live Pilot)
@@ -78,7 +78,7 @@ Thời gian kiểm thử UAT: **5 Ngày làm việc liên tục** trên môi tr�
 │    │                                  │ sau đó bấm lệnh gửi SMS/Zalo.              │ trả nợ", tự hủy lệnh gửi. │
 ├────┼──────────────────────────────────┼────────────────────────────────────────────┼───────────────────────────┤
 │ 09 │ **Gửi Tin Nhắn Zalo + VietQR**   │ Chọn gửi nhắc nợ tự động cho nhóm ML1      │ Gửi tin ZNS có gắn link   │
-│    │                                  │ tự khỏi trung bình (45% - 79%).            │ rút gọn `bidv.vn/c/...`   │
+│    │                                  │ tự khỏi trung bình (45% - 79%).            │ rút gọn `bank.vn/c/...`   │
 ├────┼──────────────────────────────────┼────────────────────────────────────────────┼───────────────────────────┤
 │ 10 │ **Làm giàu Dữ liệu (Enrichment)**│ Bổ sung Fact: "Ngày nhận lương là ngày 10",│ Lưu Fact thành công; tự   │
 │    │                                  │ thử nhập từ ngữ cấm (đe dọa, bôi nhọ).     │ động CHẶN từ ngữ nhạy cảm.│
@@ -194,5 +194,5 @@ Hằng ngày vào lúc 08:00 sáng, hệ thống tự động cập nhật Dashb
 ## 🎯 7. KẾT LUẬN & BÀN GIAO VẬN HÀNH
 
 Tài liệu này là cẩm nang vận hành toàn diện cho Giai đoạn 4. Khi kết thúc 4 tuần của Giai đoạn 4:
-1. Dự án sẽ có **Báo cáo Chứng minh Hiệu quả Kinh tế Thực tế (Business Case Proof)** có đầy đủ bằng chứng thống kê $Z\text{-test}$ để trình Hội đồng Quản trị BIDV.
+1. Dự án sẽ có **Báo cáo Chứng minh Hiệu quả Kinh tế Thực tế (Business Case Proof)** có đầy đủ bằng chứng thống kê $Z\text{-test}$ để trình Hội đồng Quản trị Ngân hàng.
 2. Nền tảng B.Collection sẽ sẵn sàng để mở rộng quy mô (Rollout) ra toàn bộ 190 Chi nhánh và các phân khúc nợ phức tạp hơn (B2, B3, SME & Doanh nghiệp lớn).

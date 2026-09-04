@@ -431,7 +431,7 @@ Mục tiêu: collector nắm được tình huống trong **15 giây** trước 
 
 ## B1. Vấn đề cần tránh
 
-Nếu thiết kế module này như một ô "Ghi chú" tự do, sau 12 tháng BIDV sẽ có vài triệu dòng text không truy vấn được, chất lượng không kiểm soát được, và một khối rủi ro tuân thủ không rà soát nổi. Toàn bộ thiết kế dưới đây xoay quanh việc tránh kết cục đó.
+Nếu thiết kế module này như một ô "Ghi chú" tự do, sau 12 tháng Ngân hàng sẽ có vài triệu dòng text không truy vấn được, chất lượng không kiểm soát được, và một khối rủi ro tuân thủ không rà soát nổi. Toàn bộ thiết kế dưới đây xoay quanh việc tránh kết cục đó.
 
 **Nguyên tắc:** *người dùng chọn, hệ thống ghi* — không phải *người dùng viết, hệ thống lưu*.
 
@@ -695,4 +695,4 @@ Chỉ số cuối là chỉ số quan trọng nhất — nó trả lời câu h�
 
 ---
 
-*Tài liệu thiết kế chi tiết, phiên bản đề xuất. Các trọng số, ngưỡng và TTL là giá trị khởi tạo, cần hiệu chỉnh trên dữ liệu thực tế của BIDV.*
+*Tài liệu thiết kế chi tiết, phiên bản đề xuất. Các trọng số, ngưỡng và TTL là giá trị khởi tạo, cần hiệu chỉnh trên dữ liệu thực tế của Ngân hàng.*

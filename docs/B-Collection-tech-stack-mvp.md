@@ -54,8 +54,8 @@ Ba giả định dưới đây quyết định 30% nội dung đề xuất. Nế
 
 | # | Giả định | Nếu sai thì sao |
 |---|---|---|
-| A1 | BIDV có kho dữ liệu tập trung (EDW/DWH) chứa dữ liệu khoản vay, giao dịch, CIF ở mức ngày | Nếu không → phải bổ sung tầng ingestion Spark + CDC, cộng 6–8 tuần |
-| A2 | BIDV có nền tảng container (Kubernetes hoặc OpenShift) đang vận hành | Nếu không → MVP chạy VM + Docker Compose, chấp nhận được, nhưng cần kế hoạch chuyển đổi |
+| A1 | Ngân hàng có kho dữ liệu tập trung (EDW/DWH) chứa dữ liệu khoản vay, giao dịch, CIF ở mức ngày | Nếu không → phải bổ sung tầng ingestion Spark + CDC, cộng 6–8 tuần |
+| A2 | Ngân hàng có nền tảng container (Kubernetes hoặc OpenShift) đang vận hành | Nếu không → MVP chạy VM + Docker Compose, chấp nhận được, nhưng cần kế hoạch chuyển đổi |
 | A3 | Toàn bộ dữ liệu phải nằm on-premise, không dùng cloud công cộng | Nếu được dùng cloud → có thể rút ngắn 4–6 tuần bằng managed services |
 
 Đề xuất dưới đây viết theo hướng **A1 đúng, A2 đúng, A3 đúng** — tức trường hợp thận trọng nhất trong môi trường ngân hàng Việt Nam.
@@ -99,7 +99,7 @@ Ba giả định dưới đây quyết định 30% nội dung đề xuất. Nế
 | CSDL chính | **PostgreSQL 16** | Một CSDL cho OLTP, audit, serving ML output, và cả quan hệ đồ thị 1-hop (Mục 3.3); JSONB cho payload linh hoạt; đội đã dùng | Oracle — chi phí và độ nặng không cần cho MVP; MongoDB — mất tính toàn vẹn giao dịch mà Guardrail cần |
 | Bộ đếm tần suất | **Redis 7** | Sorted set là cấu trúc đúng cho cửa sổ trượt; độ trễ sub-ms | Postgres — làm được nhưng chậm và tạo tải ghi không cần thiết |
 | Biến đổi dữ liệu | **dbt-core** | SQL có version, có test, có lineage — hợp với đội phân tích ngân hàng vốn mạnh SQL | Spark — chưa cần ở quy mô MVP nếu A1 đúng |
-| Điều phối batch | **Airflow** hoặc **Temporal cron** | Nếu BIDV đã có Airflow thì dùng luôn; nếu không, dùng Temporal để bớt một hệ thống | — |
+| Điều phối batch | **Airflow** hoặc **Temporal cron** | Nếu Ngân hàng đã có Airflow thì dùng luôn; nếu không, dùng Temporal để bớt một hệ thống | — |
 | ML | **LightGBM + scikit-learn** | Nhanh, giải thích được bằng SHAP, phù hợp dữ liệu bảng; yêu cầu MRM về explainability được đáp ứng | Deep learning — không có lợi thế trên dữ liệu bảng, khó qua thẩm định mô hình |
 | ML tracking | **MLflow** | Model registry + versioning là yêu cầu bắt buộc của MRM | — |
 | Frontend | **React 18 + TypeScript + Vite** | Persona Card cần tương tác; TypeScript giảm lỗi khi schema đổi | — |
@@ -313,4 +313,4 @@ R4 đáng lo hơn vẻ ngoài. Nếu dữ liệu bên bảo lãnh và đồng va
 
 ---
 
-*Đề xuất kỹ thuật, phiên bản thảo luận. Các lựa chọn công nghệ phụ thuộc vào chuẩn kỹ thuật và danh mục công nghệ được phê duyệt của BIDV — cần đối chiếu trước khi chốt.*
+*Đề xuất kỹ thuật, phiên bản thảo luận. Các lựa chọn công nghệ phụ thuộc vào chuẩn kỹ thuật và danh mục công nghệ được phê duyệt của Ngân hàng — cần đối chiếu trước khi chốt.*

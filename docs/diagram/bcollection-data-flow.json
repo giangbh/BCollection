@@ -14,7 +14,7 @@
     { "label": "Quyết định & kết quả" }
   ],
   "nodes": [
-    { "id": "internal", "type": "external", "label": "Nguồn nội bộ BIDV", "sublabel": "Core • CRM • giao dịch", "stage": 0, "row": 0, "tag": "System of record", "width": 136 },
+    { "id": "internal", "type": "external", "label": "Nguồn nội bộ Ngân hàng", "sublabel": "Core • CRM • giao dịch", "stage": 0, "row": 0, "tag": "System of record", "width": 136 },
     { "id": "manual", "type": "frontend", "label": "Làm giàu thủ công", "sublabel": "Quan hệ • tín hiệu", "stage": 0, "row": 2, "tag": "Evidence required", "width": 136, "yOffset": -106 },
     { "id": "external", "type": "external", "label": "Nguồn ngoài hợp pháp", "sublabel": "API cấp phép • OSINT", "stage": 0, "row": 4, "tag": "Allowlist", "width": 136, "yOffset": -219 },
     { "id": "intake", "type": "security", "label": "Governed Data Intake", "sublabel": "API/CDC/event • purpose • quality", "stage": 1, "row": 2, "tag": "Policy gate", "width": 170, "yOffset": -106 },

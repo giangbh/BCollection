@@ -6,7 +6,7 @@
 
 ## 1. Bối cảnh
 
-BIDV đã có Customer Data Platform (CDP) đang vận hành. Câu hỏi: B.Collection nên dùng CDP làm nền tảng chân dung khách hàng nợ, hay xây persona layer riêng?
+Ngân hàng đã có Customer Data Platform (CDP) đang vận hành. Câu hỏi: B.Collection nên dùng CDP làm nền tảng chân dung khách hàng nợ, hay xây persona layer riêng?
 
 Đây không phải câu hỏi nhị phân. CDP là tập hợp của 6 năng lực riêng biệt, và câu trả lời **khác nhau cho từng năng lực**. Trả lời theo kiểu "dùng hết" hoặc "xây mới hết" đều dẫn tới kết cục xấu: dùng hết thì phá vỡ mô hình tuân thủ; xây mới hết thì tạo ra hệ thống định danh thứ hai trong ngân hàng — rủi ro nghiêm trọng hơn nhiều.
 
@@ -174,7 +174,7 @@ Chỉ một trường: `suppress_marketing = true/false`. **Không kèm lý do, 
 
 ## 7. Bốn câu hỏi cần trả lời để xác nhận quyết định này
 
-Quyết định trên giả định CDP của BIDV có đặc điểm phổ biến. Cần kiểm chứng:
+Quyết định trên giả định CDP của Ngân hàng có đặc điểm phổ biến. Cần kiểm chứng:
 
 | # | Câu hỏi | Nếu câu trả lời khác thì sao |
 |---|---|---|
@@ -212,4 +212,4 @@ Loại bỏ vì bốn lý do ở Mục 4.4 (không có snapshot, không có prov
 
 ---
 
-*ADR phiên bản đề xuất. Cần xác nhận đặc điểm thực tế của CDP tại BIDV (Mục 7) trước khi chuyển sang trạng thái "Đã chấp thuận".*
+*ADR phiên bản đề xuất. Cần xác nhận đặc điểm thực tế của CDP tại Ngân hàng (Mục 7) trước khi chuyển sang trạng thái "Đã chấp thuận".*

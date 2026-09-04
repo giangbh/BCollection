@@ -82,7 +82,7 @@ def test_messaging_gateway_adapter_enforces_token_and_delegates():
     # 2. Thành công nếu có Guardrail Token hợp lệ
     res = adapter.send_sms_notification(
         phone_e164="+84912345678",
-        message="BIDV tran trong thong bao",
+        message="Ngan hang tran trong thong bao",
         guardrail_token="eyJhbGciOiJFUzI1NiJ9.test"
     )
     assert res["status"] == "SUCCESS"

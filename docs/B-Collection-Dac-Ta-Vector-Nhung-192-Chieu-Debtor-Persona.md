@@ -2,7 +2,7 @@
 
 > **Mã tài liệu:** `DOC-BCOLLECTION-192D-SPEC`  
 > **Phiên bản vector:** `pv-1.4`  
-> **Áp dụng cho:** Hệ thống Thu hồi nợ Bán lẻ BIDV (Phân hệ AI Engine, CBR Reference & Case Queue)  
+> **Áp dụng cho:** Hệ thống Thu hồi nợ Bán lẻ Ngân hàng (Phân hệ AI Engine, CBR Reference & Case Queue)  
 > **Phạm vi:** Early Delinquency (Bucket B1: Quá hạn DPD 1–30 ngày)
 
 ---
@@ -48,7 +48,7 @@ $$\mathbf{v}_{\text{192D}} = \underbrace{\mathbf{v}_{\text{Ability}}}_{24} + \un
 ├──────────────────────────────────────┼──────────┼────────────────────────────────────────────────────────┤
 │ 1. Khả năng trả nợ (Ability — D1)    │ 24 chiều │ Core Banking (SIBS), CIC Quốc Gia, LOS, CDP           │
 │ 2. Thiện chí trả nợ (Willingness — D2)│ 20 chiều │ Lịch sử tương tác B.Collection, Core Banking, CIC      │
-│ 3. Khả năng tiếp cận (Contact — D3)  │ 16 chiều │ FreeSWITCH CTI, SMS Gateway, SmartBanking App Logs     │
+│ 3. Khả năng tiếp cận (Contact — D3)  │ 16 chiều │ FreeSWITCH CTI, SMS Gateway, Ngân hàng số App Logs     │
 │ 4. Nguyên nhân gốc (Root Cause — D4) │ 16 chiều │ RootCauseAnalyzer Engine, Lệch kỳ lương, Bóc tách ASR  │
 │ 5. Đồ thị mạng lưới (Graph Network) │ 32 chiều │ Neo4j / NetworkX GDS (FastRP Node Embedding, LOS)      │
 │ 6. Sản phẩm & Dư nợ (Product)        │ 16 chiều │ Core Banking Loan Master, LOS Contract                 │
@@ -77,7 +77,7 @@ $$\mathbf{v}_{\text{192D}} = \underbrace{\mathbf{v}_{\text{Ability}}}_{24} + \un
 | **6** | `casa_balance_current` | Số dư tiền gửi không kỳ hạn (CASA) tức thời | Core Banking | $\log(x + 1) \rightarrow$ Standard Scaler |
 | **7** | `casa_balance_avg_90d` | Số dư CASA bình quân 90 ngày qua | Core Banking | $\log(x + 1) \rightarrow$ Standard Scaler |
 | **8** | `salary_regularity_score` | Độ quy luật ngày nhận lương (đều đặn vs bấp bênh)| Machine Learning | Điểm Float $[0.0, 1.0]$ |
-| **9** | `dsr_internal` | Tỷ lệ trả nợ trên thu nhập tại BIDV (DSR nội bộ) | LOS / Core | Standard Scaler (Clip $[0.0, 2.0]$) |
+| **9** | `dsr_internal` | Tỷ lệ trả nợ trên thu nhập tại Ngân hàng (DSR nội bộ) | LOS / Core | Standard Scaler (Clip $[0.0, 2.0]$) |
 | **10** | `dsr_total_cic` | Tỷ lệ trả nợ trên thu nhập toàn hệ thống CIC | CIC Quốc Gia | Standard Scaler (Clip $[0.0, 2.0]$) |
 | **11** | `cic_active_institutions` | Số lượng tổ chức tín dụng đang có dư nợ | CIC Quốc Gia | Min-Max $[0, 1]$ (Max = 10 TCTD) |
 | **12** | `cic_worst_group_12m` | Nhóm nợ xấu nhất toàn ngành trong 12 tháng | CIC Quốc Gia | Nhóm 1–5 $\rightarrow$ Scaled $[0.2, 1.0]$ |
@@ -106,14 +106,14 @@ $$\mathbf{v}_{\text{192D}} = \underbrace{\mathbf{v}_{\text{Ability}}}_{24} + \un
 | **27** | `ptp_avg_fulfillment_days` | Số ngày trung bình từ lúc hứa đến lúc trả tiền thật| B.Collection | Min-Max $[0, 1]$ (0–30 ngày) |
 | **28** | `self_cure_count_24m` | Số lần quá hạn nhưng tự thanh toán không cần nhắc | Core Banking | Min-Max $[0, 1]$ (Capped tại 10) |
 | **29** | `self_cure_propensity_ml01` | Xác suất tự khỏi nợ trong 7 ngày tới (Model ML01)| Model ML01 | Probability $[0.0, 1.0]$ |
-| **30** | `cross_bank_payment_signal` | Tín hiệu khách vẫn trả nợ bank khác đúng hạn | CIC Quốc Gia | Binary $\{0, 1\}$ (Tín hiệu né BIDV) |
-| **31** | `app_login_after_overdue` | Số lần mở app SmartBanking sau ngày bị quá hạn | CDP | $\log(x + 1) \rightarrow [0, 1]$ |
+| **30** | `cross_bank_payment_signal` | Tín hiệu khách vẫn trả nợ bank khác đúng hạn | CIC Quốc Gia | Binary $\{0, 1\}$ (Tín hiệu né Ngân hàng) |
+| **31** | `app_login_after_overdue` | Số lần mở app Ngân hàng số sau ngày bị quá hạn | CDP | $\log(x + 1) \rightarrow [0, 1]$ |
 | **32** | `avoidance_hangup_count` | Số lần nhấc máy rồi dập ngay hoặc chặn số gọi đến | CTI Softphone | Min-Max $[0, 1]$ (Capped tại 6) |
 | **33** | `sentiment_trend_score` | Điểm sắc thái cảm xúc trung bình các cuộc gọi gần nhất| Speech AI | Scaled $[-1.0, 1.0] \rightarrow [0.0, 1.0]$ |
 | **34** | `dispute_complaint_flag` | Khách có khiếu nại tranh chấp về lãi/phí phạt | CRM Service | Binary $\{0, 1\}$ |
 | **35** | `cooperative_dialogue_ratio`| Tỷ lệ thời lượng cuộc gọi khách chịu lắng nghe | Speech AI | Float $[0.0, 1.0]$ |
 | **36** | `prior_delinquency_max_dpd` | Số ngày quá hạn cao nhất từng ghi nhận lịch sử | Core Banking | Min-Max $[0, 1]$ (Capped tại 90) |
-| **37** | `tenure_months_with_bidv` | Số tháng gắn bó sử dụng dịch vụ của BIDV | Core Banking | $\log(x + 1) \rightarrow [0, 1]$ (Max = 120) |
+| **37** | `tenure_months_with_bank` | Số tháng gắn bó sử dụng dịch vụ của Ngân hàng | Core Banking | $\log(x + 1) \rightarrow [0, 1]$ (Max = 120) |
 | **38** | `early_repayment_history` | Lịch sử từng tất toán trước hạn các khoản vay cũ | Core Banking | Binary $\{0, 1\}$ |
 | **39** | `qr_open_count` | Số lần mở liên kết VietQR động gửi qua tin nhắn | Messaging GW | Min-Max $[0, 1]$ (Capped tại 5) |
 | **40** | `willingness_mat_no_action` | Xác suất hợp tác khi Không can thiệp (Uplift) | Model ML9 | Probability $[0.0, 1.0]$ |
@@ -138,7 +138,7 @@ $$\mathbf{v}_{\text{192D}} = \underbrace{\mathbf{v}_{\text{Ability}}}_{24} + \un
 | **51** | `best_day_of_week_sin` | Ngày trong tuần nhấc máy tốt nhất (Thành phần Sin)| AI ML04 | Cyclical Sin: $\sin(2\pi d / 7) \in [-1, 1]$ |
 | **52** | `best_day_of_week_cos` | Ngày trong tuần nhấc máy tốt nhất (Thành phần Cos)| AI ML04 | Cyclical Cos: $\cos(2\pi d / 7) \in [-1, 1]$ |
 | **53** | `phone_active_signal` | Số điện thoại chính còn phát tín hiệu trên mạng viễn thông | Telco HLRS | Binary $\{0, 1\}$ |
-| **54** | `smartbanking_app_frequency`| Tần suất mở app BIDV SmartBanking (lần/tuần) | CDP | Min-Max $[0, 1]$ (Capped tại 14) |
+| **54** | `smartbanking_app_frequency`| Tần suất mở app Ngân hàng số (lần/tuần) | CDP | Min-Max $[0, 1]$ (Capped tại 14) |
 | **55** | `smartbanking_last_active` | Số ngày kể từ lần cuối đăng nhập app | CDP | Min-Max $[0, 1]$ (Capped tại 30) |
 | **56** | `sms_delivery_rate` | Tỷ lệ tin nhắn SMS Brandname gửi thành công | SMS Gateway | Float $[0.0, 1.0]$ |
 | **57** | `zalo_zns_read_rate` | Tỷ lệ mở đọc thông báo nợ Zalo ZNS | Zalo Gateway | Float $[0.0, 1.0]$ |

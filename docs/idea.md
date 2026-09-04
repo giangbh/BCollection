@@ -200,7 +200,7 @@ Tại thời điểm 01/09/2026, baseline cần đối chiếu gồm:
 - Luật Các tổ chức tín dụng 32/2024/QH15, hiệu lực từ 01/07/2024. [Văn bản Chính phủ](https://vanban.chinhphu.vn/?classid=1&docid=211190&pageid=27160&typegroupid=)
 - Nghị định 330/2026/NĐ-CP về xử phạt trong an ninh mạng và bảo vệ dữ liệu cá nhân, hiệu lực từ 19/08/2026. [Văn bản Chính phủ](https://vanban.chinhphu.vn/?classid=1&docid=219266&pageid=27160&typegroupid=4)
 
-BIDV nên yêu cầu Legal/DPO phê duyệt từng data source và use case, thực hiện DPIA/đánh giá tác động, purpose limitation, retention, phân quyền ABAC, audit bất biến và kill switch cho model/nguồn dữ liệu.
+Ngân hàng nên yêu cầu Legal/DPO phê duyệt từng data source và use case, thực hiện DPIA/đánh giá tác động, purpose limitation, retention, phân quyền ABAC, audit bất biến và kill switch cho model/nguồn dữ liệu.
 
 ## 9. Lộ trình triển khai
 

@@ -1,6 +1,6 @@
 # B.COLLECTION — ĐỀ XUẤT TECH STACK & KIẾN TRÚC KỸ THUẬT CHO GIAI ĐOẠN MVP
 ### Lựa chọn Công nghệ Thực chiến: Tối ưu Tốc độ Ra mắt (Go-to-Market) nhưng Sẵn sàng Mở rộng (Enterprise Scale)
-**Vai trò:** Lead Enterprise Architect | **Dự án:** Hệ thống B.Collection — BIDV  
+**Vai trò:** Lead Enterprise Architect | **Dự án:** Hệ thống B.Collection — Ngân hàng  
 **Giai đoạn:** MVP (Tháng 1 – 4) $\rightarrow$ Target Production (Tháng 6 – 18)  
 **Phiên bản:** v1.0
 
@@ -46,7 +46,7 @@ Nguyên tắc chọn Tech Stack cho B.Collection MVP:
 │ Frontend (Workspace) │ React 18 + TypeScript + Vite │ React Micro-frontends (Module    │
 │                      │ + Ant Design / Tailwind CSS  │ Federation) + Mobile React Native│
 ├──────────────────────┼──────────────────────────────┼──────────────────────────────────┤
-│ Self-Service Portal  │ Next.js (SSR/Static) + PWA   │ Next.js + Mini App (Zalo/BIDV)   │
+│ Self-Service Portal  │ Next.js (SSR/Static) + PWA   │ Next.js + Mini App (Zalo/Ngân hàng)   │
 ├──────────────────────┼──────────────────────────────┼──────────────────────────────────┤
 │ Backend Core API     │ Java Spring Boot 3.x (Java21)│ Java Spring Boot 3 (Microservice)│
 ├──────────────────────┼──────────────────────────────┼──────────────────────────────────┤

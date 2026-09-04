@@ -89,7 +89,7 @@
 | `dob` | DATE | |
 | `gender` | STRING | |
 | `nationality` | STRING | |
-| `is_customer` | BOOLEAN | Phân biệt khách hàng BIDV vs người liên quan bên ngoài |
+| `is_customer` | BOOLEAN | Phân biệt khách hàng của Ngân hàng vs người liên quan bên ngoài |
 | `is_debtor` | BOOLEAN | Đang có nghĩa vụ nợ quá hạn |
 | `pep_flag` | BOOLEAN | Người có ảnh hưởng chính trị |
 | `deceased_flag` | BOOLEAN | Ảnh hưởng trực tiếp tới chiến lược thu hồi |
@@ -130,14 +130,14 @@
 **`:Address`**
 `address_id`, `raw_text`, `normalized_text`, `admin_code` (mã ĐVHC hiện hành), `admin_code_history` (ánh xạ theo biến động địa giới), `geohash`, `address_type` (`RESIDENTIAL`, `BUSINESS`, `REGISTERED`, `CORRESPONDENCE`), `verified_flag`, `verified_at`, `verification_method`
 
-**`:Device`** — chỉ từ kênh số của BIDV
+**`:Device`** — chỉ từ kênh số của Ngân hàng
 `device_id`, `device_fingerprint_token`, `os`, `first_seen`, `last_seen`, `shared_degree`
 
 **`:EmailAddress`**, **`:BankAccountExt`** (tài khoản tại TCTD khác, biết qua giao dịch chuyển tiền): `account_no_token`, `bank_code`, `holder_name_raw`
 
 ### 4.2 L-ASSET
 
-**`:Collateral`** — TSBĐ đã đăng ký tại BIDV
+**`:Collateral`** — TSBĐ đã đăng ký tại Ngân hàng
 | Thuộc tính | Ghi chú |
 |---|---|
 | `collateral_id`, `collateral_type` | `REAL_ESTATE`, `VEHICLE`, `MACHINERY`, `INVENTORY`, `RECEIVABLE`, `SECURITIES`, `DEPOSIT` |
@@ -147,10 +147,10 @@
 | `liquidity_score` | 1–5, đầu vào cho ML3/ML7 |
 | `physical_verified_at` | Lần kiểm tra thực địa gần nhất |
 
-**`:Property`** / **`:Vehicle`** — bất động sản / phương tiện biết qua nguồn khác (không phải TSBĐ tại BIDV), phục vụ đánh giá khả năng trả và phát hiện tẩu tán.
+**`:Property`** / **`:Vehicle`** — bất động sản / phương tiện biết qua nguồn khác (không phải TSBĐ tại Ngân hàng), phục vụ đánh giá khả năng trả và phát hiện tẩu tán.
 `asset_id`, `identifier_token` (số GCN / biển số, tokenized), `estimated_value`, `source`, `encumbrance_flag` (đang thế chấp nơi khác)
 
-**`:Account`** — tài khoản tại BIDV
+**`:Account`** — tài khoản tại Ngân hàng
 `account_id`, `account_type`, `open_date`, `status`, `avg_balance_3m`, `inflow_3m`, `last_txn_date`, `is_salary_account`
 
 ### 4.3 L-CASE
@@ -330,7 +330,7 @@ confidence = clip( w_base(evidence_type)
 **`w_base` theo `evidence_strength` / `evidence_type`:**
 | evidence_type | strength | w_base |
 |---|---|---|
-| `CONTRACT` (hợp đồng BIDV ký) | 5 | 1.00 |
+| `CONTRACT` (hợp đồng Ngân hàng ký) | 5 | 1.00 |
 | `LEGAL_DOC` (bản án, công chứng, ĐKGDBĐ) | 5 | 0.98 |
 | `PUBLIC_REGISTRY` (ĐKKD, CIC) | 4 | 0.92 |
 | `SYSTEM_RECORD` (giao dịch core, log kênh số) | 4 | 0.90 |
@@ -623,7 +623,7 @@ Tính bằng PySpark/GDS theo lô đêm, ghi ra bảng phẳng `gold.gft_debtor_
 
 ## 14. Quy mô, phân vùng & hiệu năng
 
-**Ước lượng (BIDV, cả bán lẻ + KHDN):**
+**Ước lượng (Ngân hàng, cả Bán lẻ + KHDN):**
 | Thành phần | Ước lượng |
 |---|---|
 | Person + Organization | 20–25 triệu |
@@ -695,4 +695,4 @@ Pipeline **fail** nếu vi phạm bất kỳ gate nào:
 
 ---
 
-*Tài liệu thiết kế chi tiết, phiên bản đề xuất. Các ngưỡng và trọng số là giá trị khởi tạo, cần hiệu chỉnh trên dữ liệu thực tế của BIDV.*
+*Tài liệu thiết kế chi tiết, phiên bản đề xuất. Các ngưỡng và trọng số là giá trị khởi tạo, cần hiệu chỉnh trên dữ liệu thực tế của Ngân hàng.*

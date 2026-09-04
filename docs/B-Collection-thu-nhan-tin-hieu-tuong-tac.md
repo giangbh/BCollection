@@ -328,4 +328,4 @@ Câu 1 quyết định độ phức tạp của toàn pipeline: nếu tổng đ�
 
 ---
 
-*Tài liệu thiết kế, phiên bản đề xuất. Danh sách công nghệ ASR là điểm khởi đầu để đánh giá, không phải khuyến nghị chọn sẵn; cần benchmark trên dữ liệu thực tế của BIDV.*
+*Tài liệu thiết kế, phiên bản đề xuất. Danh sách công nghệ ASR là điểm khởi đầu để đánh giá, không phải khuyến nghị chọn sẵn; cần benchmark trên dữ liệu thực tế của Ngân hàng.*

@@ -23,7 +23,7 @@ def test_holdout_distribution():
 
 def test_holdout_determinism():
     hm = HoldoutManager()
-    cif = "CIF_BIDV_998877"
+    cif = "CIF_BANK_998877"
     arm1 = hm.assign_arm(cif)
     arm2 = hm.assign_arm(cif)
     assert arm1 == arm2, "Holdout assignment must be strictly deterministic!"

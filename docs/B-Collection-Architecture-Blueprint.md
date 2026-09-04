@@ -1,7 +1,7 @@
 # B.COLLECTION — KIẾN TRÚC TỔNG THỂ & THẨM ĐỊNH DOANH NGHIỆP
 ### Nền tảng Ra quyết định Thu hồi nợ Thông minh & Có kiểm soát trên nền Big Data – Graph – AI
 **Tác giả & Thẩm định:** Enterprise Architecture & Analytics Taskforce  
-**Phạm vi ứng dụng:** Ngân hàng TMCP Đầu tư và Phát triển Việt Nam (BIDV) — Khối Bán lẻ & Khối KHDN  
+**Phạm vi ứng dụng:** Ngân hàng Thương mại — Khối Bán lẻ & Khối KHDN  
 **Tiêu chuẩn tham chiếu:** BIAN (Banking Industry Architecture Network), TOGAF, Luật BVDLCN 91/2025/QH15, Luật TCTD 32/2024/QH15  
 **Phiên bản:** v1.0 (Bản chuẩn hoá hoàn chỉnh)
 
@@ -263,7 +263,7 @@ Mọi hành động ra kênh (*Voice Call, SMS, Zalo, Field Visit, Gửi thông 
 ```json
 {
   "request_id": "REQ-20260901-8842",
-  "case_id": "CASE-BIDV-99182",
+  "case_id": "CASE-2026-99182",
   "target_party_id": "CIF-882194",
   "channel": "VOICE_OUTBOUND",
   "proposed_time": "2026-09-01T17:30:00+07:00",

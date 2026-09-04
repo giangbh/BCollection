@@ -5,7 +5,7 @@ import json
 import base64
 from typing import Dict, Any, Optional
 
-SECRET_KEY = "BIDV_GUARDRAIL_ES256_INTERNAL_KEY_SECURE_TOKEN"
+SECRET_KEY = "BCOLLECTION_GUARDRAIL_ES256_INTERNAL_KEY_SECURE_TOKEN"
 
 def generate_guardrail_token(request_id: str, loan_id: str, target_party_id: str, channel: str, ttl_seconds: int = 300) -> str:
     """

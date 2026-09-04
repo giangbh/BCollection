@@ -1,7 +1,7 @@
 # B.COLLECTION — HƯỚNG DẪN SỬ DỤNG CHI TIẾT
 ## Cơ chế Liên hệ Khách hàng Đa kênh, AI Tự động Bóc tách Hội thoại & Quản lý Lịch sử Tương tác (Case History)
 
-**Đơn vị áp dụng:** Ngân hàng TMCP Đầu tư và Phát triển Việt Nam (BIDV) — Khối Bán lẻ & Trung tâm Thu hồi nợ  
+**Đơn vị áp dụng:** Ngân hàng Thương mại — Khối Bán lẻ & Trung tâm Thu hồi nợ  
 **Hệ thống:** B.Collection Platform — Phân hệ Collector Workspace (Bucket B1)  
 **Tiêu chuẩn tuân thủ:** Luật Bảo vệ Dữ liệu Cá nhân 91/2025/QH15, Luật Các TCTD 32/2024/QH15, Thông tư 18/2019/TT-NHNN  
 **Phiên bản tài liệu:** v1.0 | **Ngày phát hành:** Tháng 09/2026  
@@ -74,12 +74,12 @@ Thanh công cụ **Header Softphone** được gắn cố định tại góc tr�
 
 Đối với các khách hàng thuộc nhóm nợ nhẹ (DPD 1-5) hoặc sau khi cuộc gọi kết thúc không bắt máy (`BUSY_NO_ANSWER`), hệ thống hỗ trợ gửi tin nhắn tự động:
 
-1. **Nội dung Chuẩn mực (Brandname BIDV):**  
+1. **Nội dung Chuẩn mực (Brandname Ngân hàng):**  
    - Tin nhắn hiển thị định danh chính thức của ngân hàng.
    - Nội dung nhắc nhở văn minh, nêu rõ số tiền nợ kỳ này và số ngày quá hạn, không chứa từ ngữ đe dọa.
 2. **Mã VietQR Thanh toán Động (Dynamic VietQR Link):**  
-   - Đường link thanh toán sinh riêng cho từng khách nợ: nhúng sẵn số tài khoản thu nợ BIDV, số tiền nợ chính xác đến từng đồng và nội dung chuyển khoản chuẩn hóa `[CIF] [SO_HD] TRA NO`.
-   - Khách hàng chỉ cần bấm link hoặc quét QR trên ứng dụng SmartBanking để thanh toán ngay trong 10 giây, giảm thiểu sai sót nhập liệu.
+   - Đường link thanh toán sinh riêng cho từng khách nợ: nhúng sẵn số tài khoản thu nợ Ngân hàng, số tiền nợ chính xác đến từng đồng và nội dung chuyển khoản chuẩn hóa `[CIF] [SO_HD] TRA NO`.
+   - Khách hàng chỉ cần bấm link hoặc quét QR trên ứng dụng Ngân hàng số để thanh toán ngay trong 10 giây, giảm thiểu sai sót nhập liệu.
 
 ---
 
@@ -108,7 +108,7 @@ Ngay khi chuyên viên bấm nút **[Kết thúc]** cuộc gọi, hệ thống l
 - Hệ thống tiếp nhận luồng ghi âm 2 kênh riêng biệt (Stereo Audio: Kênh 1 là Chuyên viên, Kênh 2 là Khách nợ).
 - Mô hình Speech-to-Text tiếng Việt chuyên ngành ngân hàng tự động chuyển đổi âm thanh thành văn bản với độ chính xác và độ tin cậy đạt **91% - 96%**.
 - Phân định rõ ràng người phát ngôn:
-  - `Chuyên viên:` *Chào anh/chị ĐẶNG KIM LAN, BIDV thông báo khoản vay LOAN-CR-20423 đã quá hạn 29 ngày và có nguy cơ chuyển nhóm nợ xấu trên CIC toàn quốc ạ.*
+  - `Chuyên viên:` *Chào anh/chị ĐẶNG KIM LAN, Ngân hàng thông báo khoản vay LOAN-CR-20423 đã quá hạn 29 ngày và có nguy cơ chuyển nhóm nợ xấu trên CIC toàn quốc ạ.*
   - `Khách hàng:` *Tôi đã bảo đợt này kẹt tiền không xoay kịp rồi mà cứ gọi giục suốt thế! Để cuối tháng xem thế nào rồi tính!*
   - `Chuyên viên:` *Dạ ngân hàng rất thấu hiểu khó khăn của anh/chị, em xin phép lưu nhận thông tin và gửi văn bản hỗ trợ qua Zalo ạ.*
 
@@ -158,7 +158,7 @@ Sau khi Chuyên viên xác nhận, dữ liệu được ghi nhận đồng thờ
 
 | Thành phần hiển thị | Ý nghĩa nghiệp vụ |
 |---|---|
-| **Loại hình tương tác** | Biểu tượng cuộc gọi `📞 Cuộc gọi đàm phán nợ` hoặc tin nhắn `✉️ SMS Brandname BIDV`. |
+| **Loại hình tương tác** | Biểu tượng cuộc gọi `📞 Cuộc gọi đàm phán nợ` hoặc tin nhắn `✉️ SMS Brandname Ngân hàng`. |
 | **Cán bộ thực hiện** | Tên chuyên viên phụ trách kèm mã cán bộ (VD: `Lê Văn Chuyên (CB-8842)`) hoặc `Hệ thống Tự động (Batch)`. |
 | **Thời gian chính xác** | Định dạng `DD/MM/YYYY HH:mm` (VD: `04/09/2026 11:39`). |
 | **Huy hiệu kết quả** | `❌ Từ chối thanh toán`, `🤝 Hẹn ngày thanh toán (PTP)`, `📵 Không nghe máy`, `📨 SMS VietQR đã gửi`. |
@@ -200,4 +200,4 @@ Nếu thao tác vi phạm quy định, hệ thống sẽ phát sinh cảnh báo 
 | **`G01_NO_OUTSTANDING`** | *Khoản vay không còn dư nợ quá hạn tại thời điểm liên hệ.* | Khách hàng đã thanh toán. Hệ thống tự động chuyển hồ sơ sang trạng thái `CURED (Đã tất toán/Thu hồi)`. |
 
 ---
-*Tài liệu hướng dẫn này được ban hành nhằm chuẩn hóa thao tác thu hồi nợ văn minh, ứng dụng tối đa công nghệ trí tuệ nhân tạo, bảo vệ an toàn pháp lý cho chuyên viên và nâng cao uy tín thương hiệu Ngân hàng BIDV.*
+*Tài liệu hướng dẫn này được ban hành nhằm chuẩn hóa thao tác thu hồi nợ văn minh, ứng dụng tối đa công nghệ trí tuệ nhân tạo, bảo vệ an toàn pháp lý cho chuyên viên và nâng cao uy tín thương hiệu Ngân hàng Ngân hàng.*

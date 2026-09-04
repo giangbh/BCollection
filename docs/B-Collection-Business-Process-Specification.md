@@ -1,7 +1,7 @@
 # B.COLLECTION — ĐẶC TẢ LUỒNG NGHIỆP VỤ CỐT LÕI (BUSINESS PROCESS SPECIFICATION)
 ### Tài liệu Phân tích Nghiệp vụ (BA) cho 2 Luồng Chính của Hệ thống
 **Vai trò:** Lead Business Analyst (BA Expert) | **Chuẩn tài liệu:** BABOK v3 / Banking Standards  
-**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — BIDV  
+**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — Ngân hàng  
 **Phiên bản:** v1.0
 
 ---
@@ -94,8 +94,8 @@ flowchart TD
 | **1.4** | Decision Engine (NBA) | *Phân nhánh quyết định:*<br>- Nếu $P_{\text{cure}} \ge 0.80$: Đặt trạng thái `WATCH_HOLDOUT` (tạm hoãn 48h).<br>- Nếu $P_{\text{cure}} < 0.80$: Sinh hành động `DIGITAL_REMINDER` kèm tokenized URL dẫn tới Cổng tự phục vụ. | Điểm số ML | `ProposedActionPayload` |
 | **1.5** | **⛨ L6 Compliance Guardrail** | **Kiểm tra bắt buộc trước khi gửi (Fail-closed):**<br>1. Khung giờ hiện tại có từ 07:00 – 21:00?<br>2. Tổng số lượt liên hệ trong 24h qua $< 3$ lần?<br>3. Khách hàng không có `Vulnerability Flag`?<br>4. Nội dung tin nhắn tuân thủ mẫu chuẩn phê duyệt? | `ProposedActionPayload` | Phản hồi `ALLOW` kèm chữ ký số hoặc `DENY` kèm mã lý do |
 | **1.6** | Omnichannel Dispatcher | Gửi tin nhắn theo thứ tự ưu tiên chi phí: In-App Push (0đ) $\rightarrow$ Zalo ZNS (rẻ) $\rightarrow$ SMS Brandname. | Mẫu tin nhắn, SĐT chuẩn E.164 | Trạng thái gửi: `DELIVERED` / `READ` |
-| **1.7** | Khách hàng | Khách hàng nhận tin, click vào liên kết rút gọn dạng `bidv.vn/c/{token}`. | Mã OTP SMS/SmartOTP | Màn hình Portal cá nhân hóa |
-| **1.8** | Self-Service Portal | Hiển thị: Tổng nợ gốc, tiền lãi, phí phạt, số ngày quá hạn + Nút *"Thanh toán ngay qua BIDV SmartBanking / VietQR"* + Tùy chọn *"Hẹn ngày thanh toán (PTP)"*. | Token bảo mật 1 lần | Xác nhận thanh toán hoặc ghi nhận PTP |
+| **1.7** | Khách hàng | Khách hàng nhận tin, click vào liên kết rút gọn dạng `bank.vn/c/{token}`. | Mã OTP SMS/SmartOTP | Màn hình Portal cá nhân hóa |
+| **1.8** | Self-Service Portal | Hiển thị: Tổng nợ gốc, tiền lãi, phí phạt, số ngày quá hạn + Nút *"Thanh toán ngay qua Ngân hàng số / VietQR"* + Tùy chọn *"Hẹn ngày thanh toán (PTP)"*. | Token bảo mật 1 lần | Xác nhận thanh toán hoặc ghi nhận PTP |
 | **1.9** | Core Banking & Settlement | Khách hàng quét mã trả nợ. Core hạch toán và bắn CDC event về B.Collection. | Giao dịch hạch toán | Case chuyển trạng thái `RESOLVED_CURED` |
 
 ---
@@ -104,7 +104,7 @@ flowchart TD
 
 * **BR-EC-01 (Quy tắc Giảm phiền toái - Do-Not-Bother Rule):** Khách hàng có điểm $P_{\text{cure}} \ge 0.80$ và lịch sử luôn trả nợ trong 3 ngày đầu của kỳ sao kê sẽ **tuyệt đối không bị gửi tin nhắc nợ trong 72 giờ đầu tiên**.
 * **BR-EC-02 (Quy tắc Khung giờ Vàng):** Tin nhắn chỉ được kích hoạt phát đi trong khoảng thời gian từ **08:30 – 11:30** và **14:00 – 19:30**. Hệ thống tự động hoãn (queue) các lệnh sinh ra ngoài khung giờ này.
-* **BR-EC-03 (Quy tắc Token Bảo mật):** Đường dẫn truy cập Cổng tự phục vụ (`bidv.vn/c/{token}`) có thời hạn hiệu lực **48 giờ** và tự động hủy sau khi hoàn thành thanh toán.
+* **BR-EC-03 (Quy tắc Token Bảo mật):** Đường dẫn truy cập Cổng tự phục vụ (`bank.vn/c/{token}`) có thời hạn hiệu lực **48 giờ** và tự động hủy sau khi hoàn thành thanh toán.
 * **BR-EC-04 (Quy tắc Cập nhật Dừng tức thì):** Khi khách hàng đã thanh toán đủ số tiền quá hạn tối thiểu, hệ thống phải **hủy ngay lập tức toàn bộ các lịch gửi tin/gọi điện đã lên lịch trong hàng đợi** trong vòng tối đa **60 giây**.
 
 ---
@@ -123,7 +123,7 @@ flowchart TD
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│  BIDV — THÔNG BÁO DƯ NỢ & HỖ TRỢ THANH TOÁN            │
+│  Ngân hàng — THÔNG BÁO DƯ NỢ & HỖ TRỢ THANH TOÁN            │
 ├────────────────────────────────────────────────────────┤
 │ Kính gửi: NGUYỄN VĂN A                                 │
 │ Hợp đồng vay số: LD240899120                           │
@@ -229,7 +229,7 @@ sequenceDiagram
 │ 🧭 PHÂN TÍCH CHÂN DUNG (PERSONA 360):                                                  │
 │  • Dòng tiền (Ability): Đang có hợp đồng trúng thầu dự án A (Dòng tiền về Q4).        │
 │  • Thiện chí (Willingness): Trung bình (Đã trễ hẹn 2 lần nhưng vẫn nghe máy).          │
-│  • Mạng lưới (Graph): Giám đốc đồng sở hữu BĐS tại Hà Đông (Đang thế chấp tại BIDV).   │
+│  • Mạng lưới (Graph): Giám đốc đồng sở hữu BĐS tại Hà Đông (Đang thế chấp tại Ngân hàng).   │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │ 💡 GỢI Ý PLAYBOOK TỪ AI (DỰA TRÊN 4 CASE THÀNH CÔNG TƯƠNG ĐỒNG - ĐỘ KHỚP 91%):          │
 │  1. Đòn bẩy hiệu quả nhất (Lever): Tác động qua Hạn mức tín dụng của Doanh nghiệp.    │

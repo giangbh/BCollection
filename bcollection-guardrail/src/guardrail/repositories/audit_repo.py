@@ -32,7 +32,7 @@ class HashChainAuditRepository:
     """Sổ cái Audit bất biến theo chuỗi Hash (Hash-Chain Immutable Ledger - Thread-Safe)"""
     def __init__(self):
         self._records: List[AuditRecord] = []
-        self._last_hash: str = "GENESIS_HASH_BIDV_BCOLLECTION_2026"
+        self._last_hash: str = "GENESIS_HASH_BCOLLECTION_2026"
         self._lock = threading.Lock()
 
     def record_decision(self, request_id: str, request_payload: Dict[str, Any], decision: str) -> AuditRecord:
@@ -50,7 +50,7 @@ class HashChainAuditRepository:
 
     def verify_integrity(self) -> bool:
         """Kiểm tra tính toàn vẹn của toàn bộ sổ cái Audit"""
-        current_prev = "GENESIS_HASH_BIDV_BCOLLECTION_2026"
+        current_prev = "GENESIS_HASH_BCOLLECTION_2026"
         for rec in self._records:
             if rec.prev_hash != current_prev:
                 return False

@@ -7,7 +7,7 @@ class MockMessagingApiClient(MessagingApiClient):
     def __init__(self):
         self.sent_messages: List[Dict[str, Any]] = []
 
-    def dispatch_sms(self, phone_e164: str, message: str, brandname: str = "BIDV") -> Dict[str, Any]:
+    def dispatch_sms(self, phone_e164: str, message: str, brandname: str = "BANK") -> Dict[str, Any]:
         msg_id = f"SMS-{datetime.now().strftime('%Y%m%d%H%M%S')}-{len(self.sent_messages)+1}"
         record = {
             "msg_id": msg_id,

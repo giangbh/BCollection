@@ -1,6 +1,6 @@
 # B.COLLECTION — CHIẾN LƯỢC KIỂM THỬ HIỆU NĂNG & KHẢ NĂNG MỞ RỘNG (SCALABILITY BLUEPRINT)
 ### Thẩm định Kiến trúc Tải Lớn, Kế hoạch Kiểm thử Hiệu năng & Phương án Sizing Production cho Ngân hàng Top 1
-**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — BIDV  
+**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — Ngân hàng  
 **Tác giả:** Lead Enterprise Architect (30 năm kinh nghiệm Core Banking & High-Throughput Systems)  
 **Phiên bản:** v1.0 | **Ngày thẩm định:** 01/09/2026
 
@@ -18,11 +18,11 @@
 
 ## 1. BÀI TOÁN TẢI THỰC TẾ TẠI NGÂN HÀNG BÁN LẺ LỚN NHẤT VIỆT NAM
 
-Để đảm bảo hệ thống không bị "nghẽn cổ chai" khi triển khai diện rộng, chúng ta mô hình hóa dung lượng dữ liệu và lưu lượng giao dịch thực tế của BIDV:
+Để đảm bảo hệ thống không bị "nghẽn cổ chai" khi triển khai diện rộng, chúng ta mô hình hóa dung lượng dữ liệu và lưu lượng giao dịch thực tế của Ngân hàng:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│               MÔ HÌNH DUNG LƯỢNG TẢI PRODUCTION (BIDV SCALE PROFILE)                   │
+│               MÔ HÌNH DUNG LƯỢNG TẢI PRODUCTION (Ngân hàng SCALE PROFILE)                   │
 ├──────────────────────────────────────┬──────────────────────┬──────────────────────────┤
 │ Tham số Quy mô                       │ Giá trị Ước tính     │ Tác động Tải Hệ thống    │
 ├──────────────────────────────────────┼──────────────────────┼──────────────────────────┤
@@ -112,7 +112,7 @@ Trước khi Go-Live Production, hệ thống bắt buộc phải trải qua 4 k
 
 ## 5. KIẾN TRÚC TRIỂN KHAI PRODUCTION SIZING (K8S & DB)
 
-Để phục vụ toàn bộ 15–18 triệu khách hàng của BIDV, cấu hình hạ tầng khuyến nghị cho Production (Giai đoạn 2):
+Để phục vụ toàn bộ 15–18 triệu khách hàng của Ngân hàng, cấu hình hạ tầng khuyến nghị cho Production (Giai đoạn 2):
 
 ### 5.1 Cụm Kubernetes / OpenShift (Stateless Services)
 * **`bcollection-guardrail` Service:**

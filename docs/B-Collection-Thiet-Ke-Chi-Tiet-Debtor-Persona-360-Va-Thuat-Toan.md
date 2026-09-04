@@ -1,6 +1,6 @@
 # B.COLLECTION — THIẾT KẾ CHI TIẾT CHÂN DUNG KHÁCH NỢ (DEBTOR PERSONA 360) & THUẬT TOÁN AI
 ### Đặc tả Kiến trúc 7 Trục (D1–D7), Công thức Tính toán Điểm số & Mô hình Máy học (ML01, ML04)
-**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — BIDV  
+**Dự án:** Hệ thống Quản lý & Tối ưu Thu hồi nợ B.Collection — Ngân hàng  
 **Tác giả:** Lead Enterprise Architect & Chief Data Scientist  
 **Phiên bản:** v1.0 | **Ngày ban hành:** 01/09/2026
 
@@ -64,10 +64,10 @@ Khác biệt cốt lõi: "Chúng ta không mô tả bản chất con người c�
 │**D1**│ **Khả năng trả nợ (Ability)**    │ Dòng tiền vào 3M/6M/12M, Hệ số DSR, Nợ xấu CIC, LTV    │ Core, LMS, CIC, EDW │
 ├────┼──────────────────────────────────┼────────────────────────────────────────────────────────┼─────────────────────┤
 │**D2**│ **Thiện chí trả nợ (Willingness)│ Tỷ lệ giữ PTP (PTP Kept Rate), Lịch sử tự khỏi, Trả bank│ Lịch sử Collection, │
-│    │                                  │ khác trong khi quá hạn BIDV, Hành vi dập máy né tránh. │ Core, CIC           │
+│    │                                  │ khác trong khi quá hạn Ngân hàng, Hành vi dập máy né tránh. │ Core, CIC           │
 ├────┼──────────────────────────────────┼────────────────────────────────────────────────────────┼─────────────────────┤
-│**D3**│ **Tiếp cận & Liên hệ (Contact)** │ Best Phone, RPC Rate 90 ngày, Đăng nhập SmartBanking,  │ Graph, Gateway,     │
-│    │                                  │ Khung giờ vàng nghe máy (ML4).                         │ SmartBanking App    │
+│**D3**│ **Tiếp cận & Liên hệ (Contact)** │ Best Phone, RPC Rate 90 ngày, Đăng nhập Ngân hàng số,  │ Graph, Gateway,     │
+│    │                                  │ Khung giờ vàng nghe máy (ML4).                         │ Ngân hàng số App    │
 ├────┼──────────────────────────────────┼────────────────────────────────────────────────────────┼─────────────────────┤
 │**D4**│ **Mạng lưới & Đòn bẩy (Network)**│ Bên bảo lãnh, đồng vay, TSBĐ chéo, Đòn bẩy tâm lý      │ Collection Graph,   │
 │    │                                  │ (Sợ CIC, sợ xử lý tài sản, sợ kiện tụng).              │ LOS, LMS            │
@@ -96,7 +96,7 @@ Khác biệt cốt lõi: "Chúng ta không mô tả bản chất con người c�
 $$\mathbf{S_{\text{D1}}} = 0.35 \cdot S_{\text{DSR}} + 0.25 \cdot S_{\text{Inflow}} + 0.25 \cdot S_{\text{CIC}} + 0.15 \cdot S_{\text{Collateral}}$$
 
 #### 1. Điểm Gánh nặng Nợ ($S_{\text{DSR}}$ - Trọng số 35%):
-$$\text{DSR} = \frac{\text{Tổng nghĩa vụ nợ phải trả hàng tháng (BIDV + CIC)}}{\text{Dòng tiền vào trung bình 3 tháng (\text{Verified Inflow 3M})}}$$
+$$\text{DSR} = \frac{\text{Tổng nghĩa vụ nợ phải trả hàng tháng (Ngân hàng + CIC)}}{\text{Dòng tiền vào trung bình 3 tháng (\text{Verified Inflow 3M})}}$$
 
 $$S_{\text{DSR}} = 
 \begin{cases} 
@@ -139,9 +139,9 @@ $$S_{\text{SelfCure}} = \min\left(100, 40 + \text{Self\_Cure\_Count}_{\text{24M}
 #### 3. Điểm Ưu tiên Trả nợ ($S_{\text{Priority}}$ - Trọng số 20%):
 $$S_{\text{Priority}} = 
 \begin{cases} 
-10 & \text{nếu Đang trả ngân hàng khác nhưng không trả BIDV (Cố tình)} \\
+10 & \text{nếu Đang trả ngân hàng khác nhưng không trả Ngân hàng (Cố tình)} \\
 60 & \text{nếu Quá hạn đồng loạt các ngân hàng do khó khăn chung} \\
-100 & \text{nếu Luôn ưu tiên trả nợ BIDV trước}
+100 & \text{nếu Luôn ưu tiên trả nợ Ngân hàng trước}
 \end{cases}$$
 
 #### 4. Điểm Mức độ Né tránh ($S_{\text{Avoidance}}$ - Trọng số 15%):
@@ -368,7 +368,7 @@ $$192\text{ Dim} = \underbrace{24}_{\text{Ability}} + \underbrace{20}_{\text{Wil
 │ 2  │ **Thiện chí trả nợ (Willingness)**│ **20**  │ Tỷ lệ PTP Kept 12M, Số lần tự khỏi 24M, Tín hiệu trả   │ Min-Max Normalization +     │
 │    │                                  │          │ bank khác, Mức độ dập máy né tránh, Ma trận Treatment. │ Probability Calibration     │
 ├────┼──────────────────────────────────┼──────────┼────────────────────────────────────────────────────────┼─────────────────────────────┤
-│ 3  │ **Khả năng tiếp cận (Contact)**  │ **16**   │ Tỷ lệ nghe máy RPC 90d, Tần suất App SmartBanking,     │ Scaled Numeric +            │
+│ 3  │ **Khả năng tiếp cận (Contact)**  │ **16**   │ Tỷ lệ nghe máy RPC 90d, Tần suất App Ngân hàng số,     │ Scaled Numeric +            │
 │    │                                  │          │ Số ngày từ lần nghe máy cuối, Xác suất 3 khung giờ.    │ Softmax Probabilities       │
 ├────┼──────────────────────────────────┼──────────┼────────────────────────────────────────────────────────┼─────────────────────────────┤
 │ 4  │ **Nguyên nhân gốc (Root Cause)** │ **16**   │ Phân loại 13 nhóm nguyên nhân gốc (Enum One-hot) +     │ One-Hot Encoding +          │
