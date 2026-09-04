@@ -48,6 +48,8 @@ Ghi chú: ✅: Có toàn quyền thao tác | 👁️: Chỉ xem (Read-only) | �
 ### 🎯 Mục tiêu công việc
 Tiếp nhận danh sách hồ sơ nợ B1 được phân công trong ngày, đọc nhanh chân dung khách hàng, thực hiện cuộc gọi đúng chuẩn mực pháp lý và chốt cam kết thanh toán (PTP).
 
+> 💡 **Cẩm nang Minh họa Ảnh chụp Màn hình Thực tế:** Xem tài liệu hướng dẫn chuyên sâu về cơ chế Softphone, SMS VietQR, Email, thuật toán bóc tách AI và Case History tại [`B-Collection-Huong-Dan-Lien-He-Va-Boc-Tach-AI.md`](file:///Users/giangbh/BLending/BCollection/docs/B-Collection-Huong-Dan-Lien-He-Va-Boc-Tach-AI.md).
+
 ```
                   ┌─────────────────────────────────────────────────────────┐
                   │          QUY TRÌNH 4 BƯỚC THAO TÁC CỦA CHUYÊN VIÊN      │
