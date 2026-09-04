@@ -29,27 +29,68 @@ class D1AbilityEngine:
         inflow_profile: CustomerInflowProfile,
         cic_score: int,
         worst_group_other_banks: int,
-        collateral_ltv: Optional[float] = None
+        collateral_ltv: Optional[float] = None,
+        product_code: str = "DEFAULT"
     ) -> Dict[str, Any]:
         cfg = get_scoring_config_manager().get_d1_config()
         weights = cfg["weights"]
-        dsr_cfg = cfg["dsr_thresholds"]
         cic_cfg = cfg["cic_penalty"]
         collat_cfg = cfg["collateral_thresholds"]
         bounds = cfg["score_bounds"]
 
-        # 1. S_DSR (Debt Service Ratio)
+        # 1. S_DSR theo Phân khúc Sản phẩm & Kiểm tra Sàn Mức sống Tối thiểu (Living Wage)
         inflow = max(1.0, inflow_profile.verified_inflow_avg_monthly)
         dsr = monthly_obligation / inflow
-        safe_max = dsr_cfg["safe_max"]
-        insolvent_min = dsr_cfg["insolvent_min"]
+        remaining_income = inflow - monthly_obligation
 
+        # Lấy ngưỡng DSR đặc thù theo từng loại sản phẩm
+        prod_dsr_map = cfg.get("product_dsr_thresholds", {})
+        prod_cfg = prod_dsr_map.get(
+            product_code,
+            prod_dsr_map.get("DEFAULT", cfg.get("dsr_thresholds", {"safe_max": 0.35, "insolvent_min": 0.80}))
+        )
+        safe_max = prod_cfg.get("safe_max", 0.35)
+        insolvent_min = prod_cfg.get("insolvent_min", 0.80)
+
+        # Tính điểm cơ sở theo đường cong DSR của sản phẩm
         if dsr <= safe_max:
-            s_dsr = 100.0
+            s_dsr_base = 100.0
         elif dsr >= insolvent_min:
-            s_dsr = 0.0
+            s_dsr_base = 0.0
         else:
-            s_dsr = 100.0 * (1.0 - (dsr - safe_max) / max(0.01, (insolvent_min - safe_max)))
+            s_dsr_base = 100.0 * (1.0 - (dsr - safe_max) / max(0.01, (insolvent_min - safe_max)))
+
+        # Hiệu chỉnh theo Mức sống tối thiểu & Đệm thanh khoản khả dụng theo quy mô nghĩa vụ nợ
+        living_cfg = cfg.get("living_wage_policy", {})
+        living_min = living_cfg.get("living_wage_min", 5_500_000.0)
+        safe_cushion_multiple = living_cfg.get("safe_cushion_multiple", 1.00)
+        affluent_remaining_min = living_cfg.get("affluent_remaining_min", 30_000_000.0)
+        overleveraged_cushion_max = living_cfg.get("overleveraged_cushion_max", 0.20)
+        large_exposure_obligation = living_cfg.get("large_exposure_obligation", 20_000_000.0)
+
+        cushion_multiple = remaining_income / max(monthly_obligation, 1.0)
+
+        drivers = []
+        if remaining_income < living_min:
+            # Nhánh 1: Kiệt quệ sinh tồn do số tiền còn lại không đủ sống (ví dụ lương 8tr nợ 4tr -> còn 4tr < 5.5tr)
+            penalty_ratio = max(0.0, remaining_income / max(1.0, living_min))
+            s_dsr = min(s_dsr_base, 100.0 * penalty_ratio * 0.6)  # Phạt nặng điểm DSR
+            drivers.append(f"Cảnh báo kiệt quệ: Thu nhập còn lại sau trả nợ ({remaining_income/1e6:.1f}tr) thấp hơn mức sống tối thiểu {living_min/1e6:.1f}tr/tháng")
+        elif cushion_multiple < overleveraged_cushion_max and monthly_obligation >= large_exposure_obligation:
+            # Nhánh 2: Đòn bẩy cao rủi ro (khoản nợ lớn >= 20M/tháng nhưng tiền dư < 20% nghĩa vụ nợ, ví dụ nợ 80tr còn dư 15tr -> đệm chỉ 18.7% nghĩa vụ)
+            s_dsr = max(10.0, s_dsr_base - 15.0)
+            drivers.append(f"Cảnh báo đòn bẩy nợ cao: Đệm dòng tiền ({remaining_income/1e6:.1f}tr) chỉ đạt {cushion_multiple*100:.0f}% nghĩa vụ trả nợ tháng ({monthly_obligation/1e6:.1f}tr)")
+        elif cushion_multiple >= safe_cushion_multiple and remaining_income >= affluent_remaining_min and dsr > safe_max:
+            # Nhánh 3: Đệm thanh khoản dồi dào chuẩn khá giả (>= 30M dư sau trả nợ) và đệm >= 1.0x nghĩa vụ nợ
+            bonus = min(25.0, cushion_multiple * 10.0)
+            s_dsr = min(100.0, s_dsr_base + bonus)
+            drivers.append(f"Dòng tiền an toàn: Đệm khả dụng ({remaining_income/1e6:.1f}tr) gấp {cushion_multiple:.1f}x nghĩa vụ nợ")
+        else:
+            s_dsr = s_dsr_base
+            if dsr <= safe_max:
+                drivers.append(f"DSR an toàn {dsr*100:.1f}% ({product_code}) trên thu nhập {inflow/1e6:.1f}tr/tháng")
+            else:
+                drivers.append(f"DSR {dsr*100:.1f}% vượt ngưỡng an toàn {safe_max*100:.0f}% của gói {product_code}")
 
         # 2. S_Inflow
         cv = max(0.0, 1.0 - inflow_profile.stability_coefficient)
@@ -79,13 +120,6 @@ class D1AbilityEngine:
                      + weights["collateral"] * s_collateral)
         score = int(max(bounds["min"], min(bounds["max"], round(raw_score))))
 
-        # Trích xuất top drivers kèm giải thích số liệu
-        drivers = []
-        if dsr <= safe_max:
-            drivers.append(f"DSR an toàn {dsr*100:.1f}% trên thu nhập {inflow/1e6:.1f}tr/tháng")
-        else:
-            drivers.append(f"DSR {dsr*100:.1f}% (Áp lực nghĩa vụ nợ)")
-        
         if inflow_profile.casa_balance > monthly_obligation:
             drivers.append(f"Số dư CASA {inflow_profile.casa_balance/1e6:.1f}tr đệm thanh khoản tốt")
         else:
@@ -311,7 +345,8 @@ class DynamicDebtorPersonaEngine:
             inflow_profile=inflow_profile,
             cic_score=cic_report.credit_score,
             worst_group_other_banks=cic_report.worst_group_other_banks,
-            collateral_ltv=ltv
+            collateral_ltv=ltv,
+            product_code=prod_code
         )
 
         actual_ptp = None

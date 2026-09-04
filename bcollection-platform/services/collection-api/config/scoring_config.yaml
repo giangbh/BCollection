@@ -15,9 +15,41 @@ d1_ability:
     cic: 0.25            # Trọng số lịch sử tín dụng tại các TCTD khác
     collateral: 0.15     # Trọng số tài sản bảo đảm (LTV)
   
+  # Chính sách Mức sống tối thiểu & Đệm thanh khoản khả dụng theo quy mô nghĩa vụ nợ
+  living_wage_policy:
+    living_wage_min: 5500000.0            # Mức sống tối thiểu đô thị vùng I (5.5 triệu VNĐ/tháng)
+    safe_cushion_multiple: 1.00           # Bội số an toàn: Tiền dư >= 100% nghĩa vụ nợ (DSR <= 50%) -> Thưởng bảo vệ dòng tiền
+    affluent_remaining_min: 30000000.0    # Sàn thu nhập thặng dư chuẩn Upper Mass (>= 30 triệu/tháng sau trả nợ)
+    overleveraged_cushion_max: 0.20       # Cảnh báo đòn bẩy quá mức: Tiền dư < 20% nghĩa vụ nợ khi nghĩa vụ lớn
+    large_exposure_obligation: 20000000.0 # Ngưỡng nghĩa vụ lớn (trên 20 triệu/tháng) cần giám sát đệm tỷ lệ
+  
+  # Ngưỡng DSR phân hóa theo từng phân khúc sản phẩm tín dụng
+  product_dsr_thresholds:
+    MORTGAGE:
+      safe_max: 0.45       # Vay thế chấp BĐS: an toàn tới 45%
+      insolvent_min: 0.70  # Ngưỡng kiệt quệ chấp nhận tới 70%
+    MORTGAGE_HOME:
+      safe_max: 0.45
+      insolvent_min: 0.70
+    AUTO_LOAN:
+      safe_max: 0.40       # Vay mua ô tô: an toàn 40%
+      insolvent_min: 0.65  # Kiệt quệ ở 65%
+    SME_WORKING_CAPITAL:
+      safe_max: 0.40       # Vay vốn lưu động kinh doanh: an toàn 40%
+      insolvent_min: 0.65  # Kiệt quệ ở 65%
+    CREDIT_CARD:
+      safe_max: 0.30       # Thẻ tín dụng tín chấp: an toàn tối đa 30%
+      insolvent_min: 0.50  # Chạm 50% là đã kiệt quệ rủi ro cao
+    UNSECURED_LOAN:
+      safe_max: 0.30       # Tiêu dùng tín chấp: an toàn tối đa 30%
+      insolvent_min: 0.50  # Chạm 50% là đã kiệt quệ rủi ro cao
+    DEFAULT:
+      safe_max: 0.35
+      insolvent_min: 0.65
+  
   dsr_thresholds:
-    safe_max: 0.35       # DSR <= 0.35 -> Đạt 100 điểm an toàn tuyệt đối (Quy tắc 28/36 & 50/30/20)
-    insolvent_min: 0.80  # DSR >= 0.80 -> 0 điểm (Ngưỡng kiệt quệ dòng tiền sinh tồn)
+    safe_max: 0.35       # Giá trị mặc định chung
+    insolvent_min: 0.80
   
   cic_penalty:
     penalty_per_group: 35.0  # Mỗi bậc nợ quá hạn tại TCTD khác trừ 35 điểm (TT 11/2021/TT-NHNN)

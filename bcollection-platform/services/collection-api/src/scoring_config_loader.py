@@ -9,6 +9,19 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "version": "1.0.0",
     "d1_ability": {
         "weights": {"dsr": 0.35, "inflow": 0.25, "cic": 0.25, "collateral": 0.15},
+        "living_wage_policy": {
+            "living_wage_min": 5500000.0,
+            "high_income_cushion_min": 15000000.0
+        },
+        "product_dsr_thresholds": {
+            "MORTGAGE": {"safe_max": 0.45, "insolvent_min": 0.70},
+            "MORTGAGE_HOME": {"safe_max": 0.45, "insolvent_min": 0.70},
+            "AUTO_LOAN": {"safe_max": 0.40, "insolvent_min": 0.65},
+            "SME_WORKING_CAPITAL": {"safe_max": 0.40, "insolvent_min": 0.65},
+            "CREDIT_CARD": {"safe_max": 0.30, "insolvent_min": 0.50},
+            "UNSECURED_LOAN": {"safe_max": 0.30, "insolvent_min": 0.50},
+            "DEFAULT": {"safe_max": 0.35, "insolvent_min": 0.65}
+        },
         "dsr_thresholds": {"safe_max": 0.35, "insolvent_min": 0.80},
         "cic_penalty": {"penalty_per_group": 35.0},
         "collateral_thresholds": {"safe_ltv": 0.50, "max_ltv": 1.00, "unsecured_score": 30.0},

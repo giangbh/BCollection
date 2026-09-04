@@ -129,3 +129,100 @@ def test_database_debtor_behavioral_metrics():
     assert "digital_interactions_count" in metrics
     assert "app_logins" in metrics
     assert 0.0 <= metrics["historical_on_time_ratio"] <= 1.0
+
+
+def test_d1_living_wage_floor_penalty_and_relative_cushion():
+    # Case A: Thu nhập thấp 8 triệu, trả nợ 4 triệu (DSR 50%). Tiền còn lại 4 triệu < 5.5 triệu mức sống tối thiểu
+    low_inflow = CustomerInflowProfile(
+        debtor_cif="CIF_LOW_INC",
+        verified_inflow_avg_monthly=8_000_000.0,
+        casa_balance=500_000.0,
+        salary_day_of_month=10,
+        stability_coefficient=0.85
+    )
+    res_low = D1AbilityEngine.calculate(
+        monthly_obligation=4_000_000.0,
+        inflow_profile=low_inflow,
+        cic_score=600,
+        worst_group_other_banks=1,
+        collateral_ltv=None,
+        product_code="UNSECURED_LOAN"
+    )
+    # Bị cảnh báo kiệt quệ sinh tồn và điểm bị kéo xuống
+    assert any("thấp hơn mức sống tối thiểu" in d for d in res_low["top_drivers"])
+    assert res_low["value"] <= 50
+
+    # Case B: Nghĩa vụ nợ lớn (80 triệu/tháng), thu nhập 95 triệu. Tiền còn lại 15 triệu
+    # Đệm tiền dư 15tr chỉ bằng 18.75% (< 20%) nghĩa vụ nợ -> Cảnh báo đòn bẩy cao, không được thưởng
+    overleveraged_inflow = CustomerInflowProfile(
+        debtor_cif="CIF_OVERLEVERAGED",
+        verified_inflow_avg_monthly=95_000_000.0,
+        casa_balance=10_000_000.0,
+        salary_day_of_month=10,
+        stability_coefficient=0.90
+    )
+    res_overleveraged = D1AbilityEngine.calculate(
+        monthly_obligation=80_000_000.0,
+        inflow_profile=overleveraged_inflow,
+        cic_score=700,
+        worst_group_other_banks=1,
+        collateral_ltv=0.60,
+        product_code="MORTGAGE"
+    )
+    assert any("Cảnh báo đòn bẩy nợ cao" in d for d in res_overleveraged["top_drivers"])
+
+    # Case C: Thu nhập cao 100 triệu, trả nợ 48 triệu (DSR 48% > 45% safe_max).
+    # Tiền còn lại 52 triệu >= 48 triệu (cushion multiple 1.08x >= 1.0) và >= 11 triệu (2x mức sống)
+    safe_cushion_inflow = CustomerInflowProfile(
+        debtor_cif="CIF_HIGH_CUSHION",
+        verified_inflow_avg_monthly=100_000_000.0,
+        casa_balance=50_000_000.0,
+        salary_day_of_month=10,
+        stability_coefficient=0.95
+    )
+    res_high = D1AbilityEngine.calculate(
+        monthly_obligation=48_000_000.0,
+        inflow_profile=safe_cushion_inflow,
+        cic_score=720,
+        worst_group_other_banks=1,
+        collateral_ltv=0.45,
+        product_code="MORTGAGE"
+    )
+    # Được thưởng bảo vệ dòng tiền do đệm khả dụng >= 1.0x nghĩa vụ nợ
+    assert any("Dòng tiền an toàn: Đệm khả dụng" in d for d in res_high["top_drivers"])
+    assert res_high["value"] >= 65
+
+
+def test_d1_product_dsr_threshold_differentiation():
+    # Cùng mức DSR = 42% ở mức thu nhập trung bình (Thu nhập 25 triệu, trả nợ 10.5 triệu)
+    inflow = CustomerInflowProfile(
+        debtor_cif="CIF_COMPARE",
+        verified_inflow_avg_monthly=25_000_000.0,
+        casa_balance=5_000_000.0,
+        salary_day_of_month=10,
+        stability_coefficient=0.90
+    )
+
+    # 1. MORTGAGE (Ngưỡng an toàn đến 45%): DSR 42% vẫn nằm trong ngưỡng an toàn
+    res_mo = D1AbilityEngine.calculate(
+        monthly_obligation=10_500_000.0,
+        inflow_profile=inflow,
+        cic_score=700,
+        worst_group_other_banks=1,
+        collateral_ltv=0.45,
+        product_code="MORTGAGE"
+    )
+
+    # 2. CREDIT_CARD (Ngưỡng an toàn chỉ 30%, kiệt quệ ở 50%): DSR 42% bị đánh giá là rủi ro cao
+    res_cc = D1AbilityEngine.calculate(
+        monthly_obligation=10_500_000.0,
+        inflow_profile=inflow,
+        cic_score=700,
+        worst_group_other_banks=1,
+        collateral_ltv=None,
+        product_code="CREDIT_CARD"
+    )
+
+    # Điểm Ability của Mortgage phải cao hơn rõ rệt so với Thẻ tín dụng do được chấp nhận DSR cao hơn
+    assert res_mo["value"] > res_cc["value"]
+    assert any("vượt ngưỡng an toàn 30% của gói CREDIT_CARD" in d for d in res_cc["top_drivers"])
