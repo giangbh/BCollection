@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "B.Collection — Hành trình Xử lý Sự kiện Thanh toán & Cập nhật Persona Real-Time",
+    "quality_profile": "showcase",
+    "viewBox": [910, 1180],
+    "animation": "trace",
+    "views": [
+      {
+        "id": "full-journey",
+        "label": "Toàn bộ Hành trình Thanh toán Real-Time",
+        "focus": ["debtor", "payment_gw", "api", "redis", "channels", "persona_cbr", "workspace", "collector"],
+        "note": "Từ khi khách hàng quét VietQR đến khi hủy can thiệp CTI/SMS, tính lại điểm D1/D2/D3 và đồng bộ WebSocket lên bàn làm việc chuyên viên."
+      },
+      {
+        "id": "anti-false-delinquency",
+        "label": "Khóa Phân tán & Chống Đòi Nợ Nhầm",
+        "focus": ["payment_gw", "api", "redis", "channels"],
+        "note": "Redis Distributed Lock 15s và lệnh hủy can thiệp tức thời tới CTI Softswitch & SMS Queue."
+      },
+      {
+        "id": "persona-and-cbr-sync",
+        "label": "Tái tính toán Persona 192D & Sync UI",
+        "focus": ["api", "persona_cbr", "workspace", "collector"],
+        "note": "D1/D2 tăng vọt, chuyển trạng thái CURED, cập nhật pgvector 192 chiều và đẩy WebSocket sang Collector Workspace."
+      }
+    ]
+  },
+  "participants": [
+    { "id": "debtor", "type": "external", "label": "Khách nợ", "sublabel": "Mobile/Napas" },
+    { "id": "payment_gw", "type": "backend", "label": "Payment GW", "sublabel": "VietQR/Core" },
+    { "id": "api", "type": "backend", "label": "Core API", "sublabel": "FastAPI" },
+    { "id": "redis", "type": "database", "label": "Redis Store", "sublabel": "Lock & Cache" },
+    { "id": "channels", "type": "backend", "label": "Channels", "sublabel": "CTI & SMS" },
+    { "id": "persona_cbr", "type": "backend", "label": "Persona & CBR", "sublabel": "192D & CBR" },
+    { "id": "workspace", "type": "frontend", "label": "Workspace", "sublabel": "React App" },
+    { "id": "collector", "type": "external", "label": "Chuyên viên", "sublabel": "Collector" }
+  ],
+  "segments": [
+    { "from": 145, "to": 385, "label": "Giai đoạn 1: Phát sinh Thanh toán & Tiếp nhận Sự kiện (VietQR / Core Banking)" },
+    { "from": 405, "to": 625, "label": "Giai đoạn 2: Khóa Phân tán & Hủy Can thiệp Tức thời (Anti-False-Delinquency)" },
+    { "from": 645, "to": 865, "label": "Giai đoạn 3: Tái tính toán Persona (D1, D2, D3), Đóng gói Tri thức CBR 192D" },
+    { "from": 885, "to": 1105, "label": "Giai đoạn 4: Đồng bộ Real-Time WebSocket & Cập nhật Bàn làm việc Chuyên viên" }
+  ],
+  "messages": [
+    { "id": "m1", "from": "debtor", "to": "payment_gw", "y": 170, "label": "1. Quét VietQR thanh toán đủ 5.4M nợ quá hạn", "variant": "emphasis" },
+    { "id": "m2", "from": "payment_gw", "to": "api", "y": 205, "label": "Webhook / Kafka: event=PAYMENT_SETTLED (5.4M)", "variant": "emphasis" },
+    { "id": "m3", "from": "api", "to": "redis", "y": 240, "label": "SET lock:case_settlement:{id} token NX PX 15000", "variant": "security" },
+    { "id": "m4", "from": "redis", "to": "api", "y": 275, "label": "OK (Khóa phân tán chiếm giữ thành công)", "variant": "return" },
+    { "id": "m5", "from": "api", "to": "payment_gw", "y": 310, "label": "Verify balance & Overdue remaining (IF-CORE-04)", "variant": "default" },
+    { "id": "m6", "from": "payment_gw", "to": "api", "y": 345, "label": "Overdue cleared: 0 VNĐ (DPD -> 0, Status -> CURED)", "variant": "return" },
+
+    { "id": "m7", "from": "api", "to": "channels", "y": 430, "label": "2. HỦY CAN THIỆP: Drop queued outbound calls & SMS", "variant": "security" },
+    { "id": "m8", "from": "channels", "to": "api", "y": 465, "label": "All pending outbound interactions aborted", "variant": "return" },
+    { "id": "m9", "from": "api", "to": "redis", "y": 500, "label": "Reset guardrail:daily_attempts counter for case", "variant": "dashed" },
+    { "id": "m10", "from": "redis", "to": "api", "y": 535, "label": "Daily attempt counter cleared", "variant": "return" },
+    { "id": "m11", "from": "api", "to": "redis", "y": 570, "label": "DEL lock:case_settlement:{id} (Lua script release)", "variant": "security" },
+    { "id": "m12", "from": "redis", "to": "api", "y": 605, "label": "1 (Nhả khóa phân tán an toàn)", "variant": "return" },
+
+    { "id": "m13", "from": "api", "to": "persona_cbr", "y": 670, "label": "3. Recalculate Persona: Inflow, CASA buffer, PTP kept", "variant": "emphasis" },
+    { "id": "m14", "from": "persona_cbr", "to": "api", "y": 705, "label": "D1 (38 -> 88), D2 (32 -> 92): Shift to IDEAL segment", "variant": "return" },
+    { "id": "m15", "from": "api", "to": "persona_cbr", "y": 740, "label": "Re-embed 192D vector (L2 norm) & Save CBR Case", "variant": "emphasis" },
+    { "id": "m16", "from": "persona_cbr", "to": "api", "y": 775, "label": "Vector saved with ground-truth (100% cure in pgvector)", "variant": "return" },
+    { "id": "m17", "from": "api", "to": "redis", "y": 810, "label": "DEL persona:cache:{id} & SETEX new payload (TTL 15m)", "variant": "dashed" },
+    { "id": "m18", "from": "redis", "to": "api", "y": 845, "label": "Cache updated", "variant": "return" },
+
+    { "id": "m19", "from": "api", "to": "workspace", "y": 910, "label": "4. WebSocket WSS: Push CASE_PAYMENT_SETTLED event", "variant": "emphasis" },
+    { "id": "m20", "from": "workspace", "to": "collector", "y": 945, "label": "Play chime sound, Turn Persona Card to SUCCESS GREEN", "variant": "return" },
+    { "id": "m21", "from": "workspace", "to": "collector", "y": 980, "label": "Disable Call/SMS buttons: 'Đã thanh toán đủ lúc 15:31'", "variant": "security" },
+    { "id": "m22", "from": "workspace", "to": "collector", "y": 1015, "label": "Slide case out of Active Queue into Resolved Tab", "variant": "default" },
+    { "id": "m23", "from": "workspace", "to": "api", "y": 1050, "label": "ACK: Client UI synchronized successfully", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "debtor", "from": 170, "to": 205, "type": "external" },
+    { "participant": "payment_gw", "from": 170, "to": 345, "type": "backend" },
+    { "participant": "api", "from": 205, "to": 345, "type": "backend" },
+    { "participant": "redis", "from": 240, "to": 275, "type": "database" },
+    { "participant": "api", "from": 430, "to": 605, "type": "backend" },
+    { "participant": "channels", "from": 430, "to": 465, "type": "backend" },
+    { "participant": "redis", "from": 500, "to": 605, "type": "database" },
+    { "participant": "api", "from": 670, "to": 845, "type": "backend" },
+    { "participant": "persona_cbr", "from": 670, "to": 775, "type": "backend" },
+    { "participant": "redis", "from": 810, "to": 845, "type": "database" },
+    { "participant": "workspace", "from": 910, "to": 1050, "type": "frontend" },
+    { "participant": "collector", "from": 945, "to": 1015, "type": "external" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Chống Đòi Nợ Nhầm Tức Thời (Anti-False-Delinquency)",
+      "items": [
+        "Khóa phân tán Redis Lock 15 giây thiết lập rào chắn ngay khi giao dịch thanh toán Napas 24/7 / VietQR vừa cập bến",
+        "Lập tức phát lệnh cắt cầu can thiệp tới tổng đài CTI Softswitch và SMS Queue, triệt tiêu hoàn toàn rủi ro đòi nợ oan người đã trả tiền"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Chuyển Hóa Persona Đa Trục (D1/D2/D3)",
+      "items": [
+        "D1 (Khả năng): Số dư CASA tăng, DSR về 0%, Bội số đệm Cushion Multiple đạt chuẩn an toàn, thoát sàn sinh tồn",
+        "D2 (Thiện chí): Xác thực PTP_KEPT, xóa bỏ toàn bộ điểm phạt né tránh DPD, cộng điểm tự khỏi ML01 cho các chu kỳ sau",
+        "Ma trận 2x2: Dịch chuyển từ 'Khủng hoảng kiệt quệ' sang góc phần tư 'Khách hàng Lý tưởng / Đã tự khỏi'"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Tự Học Tri thức CBR 192D & Đồng bộ WebSocket",
+      "items": [
+        "Tái nhúng vector 192 chiều, nạp vào pgvector với nhãn giải pháp thành công (100% Recovery Rate qua VietQR Dynamic SMS)",
+        "WebSocket đẩy bản tin sự kiện tới Collector Workspace dưới 500ms: Persona chuyển Xanh, khóa nút Gọi điện và trượt khỏi hàng đợi"
+      ]
+    }
+  ]
+}

@@ -72,6 +72,11 @@ Hệ thống B.Collection phân biệt rõ ràng **2 loại sự kiện dòng ti
 
 ## 3. Kiến trúc Luồng Dữ liệu Sự kiện (Real-Time Event-Driven Architecture)
 
+> 📊 **Sơ đồ Tương tác Động (Archify Deliverable):**  
+> * File HTML xem trực tiếp: [`docs/diagram/B.Collection-Payment-Event-Flow.html`](file:///Users/giangbh/BCollection/BCollection/docs/diagram/B.Collection-Payment-Event-Flow.html)  
+> * File cấu trúc Sequence JSON: [`docs/diagram/bcollection-payment-event-flow.sequence.json`](file:///Users/giangbh/BCollection/BCollection/docs/diagram/bcollection-payment-event-flow.sequence.json)  
+> * Bản chụp kiểm tra trực quan: [`docs/diagram/B.Collection-Payment-Event-Flow.visual-check.html`](file:///Users/giangbh/BCollection/BCollection/docs/diagram/B.Collection-Payment-Event-Flow.visual-check.html)
+
 Hệ thống sử dụng mô hình Kiến trúc Hướng sự kiện (**Event-Driven Architecture**) kết hợp giữa **Apache Kafka** (cho các giao dịch Core Banking hàng loạt) và **REST Webhook** (cho các giao dịch VietQR Napas 24/7 trực tiếp):
 
 ```mermaid
