@@ -1,0 +1,112 @@
+# ==============================================================================
+# B.Collection - Scoring Configuration Policy (Quy chuẩn Trọng số & Ngưỡng Tính điểm)
+# ==============================================================================
+version: "1.0.0"
+updated_at: "2026-09-04"
+description: "Cấu hình trọng số D1/D2/D3, ngưỡng DSR, LTV, CIC, PTP và mô hình AI ML01"
+
+# ------------------------------------------------------------------------------
+# TRỤC D1: KHẢ NĂNG TRẢ NỢ (ABILITY SCORE)
+# ------------------------------------------------------------------------------
+d1_ability:
+  weights:
+    dsr: 0.35            # Trọng số tỷ lệ trả nợ trên thu nhập (DSR)
+    inflow: 0.25         # Trọng số độ ổn định dòng tiền & đệm CASA
+    cic: 0.25            # Trọng số lịch sử tín dụng tại các TCTD khác
+    collateral: 0.15     # Trọng số tài sản bảo đảm (LTV)
+  
+  dsr_thresholds:
+    safe_max: 0.35       # DSR <= 0.35 -> Đạt 100 điểm an toàn tuyệt đối (Quy tắc 28/36 & 50/30/20)
+    insolvent_min: 0.80  # DSR >= 0.80 -> 0 điểm (Ngưỡng kiệt quệ dòng tiền sinh tồn)
+  
+  cic_penalty:
+    penalty_per_group: 35.0  # Mỗi bậc nợ quá hạn tại TCTD khác trừ 35 điểm (TT 11/2021/TT-NHNN)
+  
+  collateral_thresholds:
+    safe_ltv: 0.50       # LTV <= 0.50 -> Đạt 100 điểm an toàn
+    max_ltv: 1.00        # LTV >= 1.00 -> 0 điểm
+    unsecured_score: 30.0 # Khoản vay tín chấp không có TSBĐ gán 30 điểm (Chuẩn thu hồi nợ tín dụng tiêu dùng 25-35%)
+  
+  score_bounds:
+    min: 10
+    max: 98
+  
+  coverage: 0.88
+
+# ------------------------------------------------------------------------------
+# TRỤC D2: THIỆN CHÍ TRẢ NỢ (WILLINGNESS SCORE)
+# ------------------------------------------------------------------------------
+d2_willingness:
+  weights:
+    ptp: 0.40            # Trọng số tỷ lệ giữ cam kết hẹn trả (Promise-to-Pay)
+    self_cure: 0.25      # Trọng số xác suất tự thanh toán (ML01)
+    priority: 0.20       # Trọng số thứ tự ưu tiên thanh toán ngân hàng
+    avoidance: 0.15      # Trọng số dấu hiệu né tránh theo thời gian
+  
+  ptp_decay:
+    base_rate: 0.90      # Tỷ lệ cam kết nền ở ngày đầu tiên
+    decay_cycle_days: 35.0 # Chu kỳ 35 ngày chuyển nhóm B1 -> B2
+    min_rate: 0.20       # Tỷ lệ sàn tối thiểu
+    max_rate: 0.95       # Tỷ lệ trần tối đa
+  
+  priority_scores:
+    paying_other_banks: 15.0 # Phạt nặng nếu trả bank khác nhưng né ngân hàng ta (Rủi ro đạo đức)
+    normal: 85.0
+  
+  avoidance:
+    penalty_per_day: 2.0     # Mỗi ngày quá hạn trừ 2 điểm thiện chí
+    max_penalty: 60.0        # Mức phạt tối đa 60 điểm
+  
+  score_bounds:
+    min: 15
+    max: 95
+  
+  coverage: 0.82
+
+# ------------------------------------------------------------------------------
+# TRỤC D3: KHẢ NĂNG TIẾP CẬN (CONTACTABILITY SCORE)
+# ------------------------------------------------------------------------------
+d3_contactability:
+  weights:
+    rpc: 0.40            # Xác suất kết nối đúng đối tượng (Right-Party-Contact)
+    digital: 0.35        # Mức độ tích cực trên kênh số (SmartBanking / OTT)
+    recency: 0.25        # Độ mới và hiệu lực của thông tin liên lạc
+  
+  digital_thresholds:
+    high_logins: 10      # >= 10 lần đăng nhập/tháng -> 100 điểm
+    high_score: 100.0
+    medium_logins: 3     # 3 - 9 lần đăng nhập/tháng -> 70 điểm
+    medium_score: 70.0
+    low_score: 30.0      # < 3 lần -> 30 điểm
+  
+  score_bounds:
+    min: 20
+    max: 95
+  
+  coverage: 0.90
+
+# ------------------------------------------------------------------------------
+# MA TRẬN PHÂN KHÚC 2x2 (SEGMENT MATRIX)
+# ------------------------------------------------------------------------------
+segment_matrix:
+  ability_cutoff: 60     # Ngưỡng phân định Khả năng (D1 >= 60: Cao; < 60: Thấp)
+  willingness_cutoff: 50 # Ngưỡng phân định Thiện chí (D2 >= 50: Tốt; < 50: Kém)
+
+# ------------------------------------------------------------------------------
+# CHIẾN LƯỢC KÊNH & MÔ HÌNH AI ML01
+# ------------------------------------------------------------------------------
+ml01_self_cure:
+  base_intercept: 0.60
+  weights:
+    historical_on_time_ratio: 0.40
+    days_since_salary_day: -0.05
+    dpd: -0.03
+    prior_cure_count: 0.15
+    dti_ratio: -0.20
+    casa_buffer_weight: 0.25
+  tiers:
+    high_prob: 0.80      # P >= 0.80 -> Ân hạn 5 ngày (SELF_CURE_HIGH)
+    high_grace_days: 5
+    med_prob: 0.45       # 0.45 <= P < 0.80 -> Ân hạn 3 ngày (SELF_CURE_MED)
+    med_grace_days: 3
+  channel_threshold: 0.70 # P > 0.70 -> Zalo/Self-service; P <= 0.70 -> Voice

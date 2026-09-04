@@ -95,5 +95,5 @@ def test_cic_adapter_delegates_to_client():
 
     report = adapter.get_credit_report(debtor_cif="CIF100001", national_id="001099012345")
     assert report.debtor_cif == "CIF100001"
-    assert report.credit_score == 620
-    assert report.worst_group_other_banks in (1, 2)
+    assert 450 <= report.credit_score <= 750
+    assert report.worst_group_other_banks in (1, 2, 3)

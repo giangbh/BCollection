@@ -107,6 +107,16 @@ def get_root_cause_dmn_rules():
     return get_dmn_engine().get_rules_summary()
 
 
+@app.get("/api/config/scoring")
+def get_scoring_policy_config():
+    """
+    Xem toàn bộ Cấu hình Trọng số & Ngưỡng Tính điểm (Scoring Policy) từ scoring_config.yaml.
+    Hỗ trợ Hot-Reload: Tự động cập nhật khi file YAML thay đổi mà không cần restart server.
+    """
+    from scoring_config_loader import get_scoring_config_manager
+    return get_scoring_config_manager().get_config()
+
+
 @app.get("/api/cases", response_model=List[Dict[str, Any]])
 def get_case_queue():
     """Lấy danh sách hồ sơ nợ B1 từ SQLite DB"""
