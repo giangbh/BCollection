@@ -137,7 +137,7 @@ bcollection-platform/
 │   │   └── IF-DWH-03.collection-mart.schema.json
 │   └── tests/                      # contract test chạy hằng ngày trên UAT
 ├── libs/                           # thư viện dùng chung
-│   ├── bc-domain/                  # kiểu dữ liệu nghiệp vụ, không phụ thuộc hạ tầng
+│   ├── bc_domain/                  # kiểu dữ liệu nghiệp vụ, không phụ thuộc hạ tầng
 │   │   ├── case.py
 │   │   ├── persona.py              # gồm willingness_matrix
 │   │   ├── obligation.py
@@ -309,7 +309,7 @@ Bộ test tuân thủ của Guardrail dùng **fixture tự viết**, không dùn
 |---|---|
 | Kiến trúc tổng thể v0.2 | `platform/docs/architecture/` |
 | Collection Graph | `platform/docs/architecture/` + schema trong `db/migrations/` |
-| Persona Model v0.2 | `platform/docs/architecture/` + `libs/bc-domain/persona.py` |
+| Persona Model v0.2 | `platform/docs/architecture/` + `libs/bc_domain/persona.py` |
 | Guardrail Service v1.0 | `guardrail/docs/control-specs/` |
 | Kiến trúc tích hợp | `platform/contracts/` + `docs/architecture/` |
 | Tech Stack MVP | `platform/docs/architecture/` |
@@ -325,7 +325,7 @@ Nguyên tắc: **tài liệu nằm cùng repo với code mà nó mô tả**, đ�
 |---|---|
 | 1 | Tạo 4 repo, CODEOWNERS, pre-commit, CI khung; đưa 7 tài liệu vào `docs/` |
 | 1 | Dựng `contracts/` với schema của 19 interface P0 (kể cả khi chưa có dữ liệu) |
-| 2 | `bc-domain` với kiểu dữ liệu cốt lõi; migration đầu tiên cho `party_obligation` |
+| 2 | `bc_domain` với kiểu dữ liệu cốt lõi; migration đầu tiên cho `party_obligation` |
 | 2 | `bcollection-data`: dbt staging + `holdout_assignment.py` |
 | 3 | Khung Guardrail: `base.py`, orchestrator, `test_bypass_attempts.py` (viết test trước) |
 | 4 | `bcollection-policy` với policy v1 và pipeline ký số |

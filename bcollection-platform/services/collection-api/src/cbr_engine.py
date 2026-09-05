@@ -2,6 +2,7 @@ import json
 import sqlite3
 import random
 import numpy as np
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 # Danh mục 5 sản phẩm tín dụng B1
@@ -113,60 +114,62 @@ def _generate_single_192d_vector(
     return vec
 
 
-def generate_1000_reference_cases() -> List[Dict[str, Any]]:
-    """Sinh 1000 hồ sơ tham chiếu CBR chuẩn thực tế ngân hàng"""
+def generate_1000_reference_cases(seed: int = 42) -> List[Dict[str, Any]]:
+    """Generate synthetic reference fixtures, not observed recovery outcomes."""
     cases = []
+    rng = random.Random(seed)
     rc_keys = list(ROOT_CAUSE_CONFIG.keys())
     rc_weights = [ROOT_CAUSE_CONFIG[k]["weight"] for k in rc_keys]
 
     for i in range(1, 1001):
         ref_id = f"REF-2025-{i:04d}"
         product = PRODUCTS[i % len(PRODUCTS)]
-        dpd = random.randint(1, 30)
+        dpd = rng.randint(1, 30)
 
         # Chọn nguyên nhân gốc theo phân bố trọng số thực tế
-        rc = random.choices(rc_keys, weights=rc_weights, k=1)[0]
+        rc = rng.choices(rc_keys, weights=rc_weights, k=1)[0]
         cfg = ROOT_CAUSE_CONFIG[rc]
 
         # Chọn kịch bản và đòn bẩy
-        playbook = random.choice(cfg["playbooks"])
+        playbook = rng.choice(cfg["playbooks"])
         levers = cfg["levers"]
 
         # Tỷ lệ thu hồi thành công: 0.70 đến 1.0
         if rc == "WILFUL_DEFAULT":
-            rec_rate = round(random.uniform(0.70, 0.88), 2)
-            days = random.randint(20, 45)
-            d1 = round(random.uniform(0.60, 0.85), 2)
-            d2 = round(random.uniform(0.20, 0.45), 2)
-            d3 = round(random.uniform(0.40, 0.65), 2)
+            rec_rate = round(rng.uniform(0.70, 0.88), 2)
+            days = rng.randint(20, 45)
+            d1 = round(rng.uniform(0.60, 0.85), 2)
+            d2 = round(rng.uniform(0.20, 0.45), 2)
+            d3 = round(rng.uniform(0.40, 0.65), 2)
         elif rc == "FORGOT_CARELESS":
             rec_rate = 1.0
-            days = random.randint(2, 7)
-            d1 = round(random.uniform(0.80, 0.95), 2)
-            d2 = round(random.uniform(0.85, 0.98), 2)
-            d3 = round(random.uniform(0.75, 0.95), 2)
+            days = rng.randint(2, 7)
+            d1 = round(rng.uniform(0.80, 0.95), 2)
+            d2 = round(rng.uniform(0.85, 0.98), 2)
+            d3 = round(rng.uniform(0.75, 0.95), 2)
         elif rc == "CASHFLOW_TIMING":
-            rec_rate = round(random.uniform(0.92, 1.0), 2)
-            days = random.randint(5, 15)
-            d1 = round(random.uniform(0.70, 0.90), 2)
-            d2 = round(random.uniform(0.75, 0.92), 2)
-            d3 = round(random.uniform(0.65, 0.85), 2)
+            rec_rate = round(rng.uniform(0.92, 1.0), 2)
+            days = rng.randint(5, 15)
+            d1 = round(rng.uniform(0.70, 0.90), 2)
+            d2 = round(rng.uniform(0.75, 0.92), 2)
+            d3 = round(rng.uniform(0.65, 0.85), 2)
         elif rc == "BUSINESS_DOWNTURN":
-            rec_rate = round(random.uniform(0.82, 0.94), 2)
-            days = random.randint(14, 30)
-            d1 = round(random.uniform(0.45, 0.70), 2)
-            d2 = round(random.uniform(0.65, 0.85), 2)
-            d3 = round(random.uniform(0.55, 0.75), 2)
+            rec_rate = round(rng.uniform(0.82, 0.94), 2)
+            days = rng.randint(14, 30)
+            d1 = round(rng.uniform(0.45, 0.70), 2)
+            d2 = round(rng.uniform(0.65, 0.85), 2)
+            d3 = round(rng.uniform(0.55, 0.75), 2)
         else:
-            rec_rate = round(random.uniform(0.78, 0.90), 2)
-            days = random.randint(15, 35)
-            d1 = round(random.uniform(0.40, 0.65), 2)
-            d2 = round(random.uniform(0.50, 0.75), 2)
-            d3 = round(random.uniform(0.50, 0.70), 2)
+            rec_rate = round(rng.uniform(0.78, 0.90), 2)
+            days = rng.randint(15, 35)
+            d1 = round(rng.uniform(0.40, 0.65), 2)
+            d2 = round(rng.uniform(0.50, 0.75), 2)
+            d3 = round(rng.uniform(0.50, 0.70), 2)
 
         vector_192d = _generate_single_192d_vector(product, dpd, rc, d1, d2, d3, seed_val=i * 37)
 
         cases.append({
+            "data_origin": "SYNTHETIC",
             "reference_id": ref_id,
             "product_code": product,
             "dpd_intake": dpd,
@@ -188,17 +191,16 @@ _CBR_MATRIX_CACHE: Optional[np.ndarray] = None
 _CBR_METADATA_CACHE: Optional[List[Dict[str, Any]]] = None
 
 
-def seed_1000_cbr_cases_if_needed(conn: sqlite3.Connection):
-    """Nạp 1000 hồ sơ reference vào SQLite nếu chưa đủ 1000 bản ghi"""
+def seed_1000_cbr_cases_if_needed(conn: sqlite3.Connection, seed=42, as_of=None):
+    """Explicit demo seed for an empty reference table; never delete existing rows."""
     global _CBR_MATRIX_CACHE, _CBR_METADATA_CACHE
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM cbr_reference_cases;")
     count = cursor.fetchone()[0]
 
-    if count < 1000:
-        cursor.execute("DELETE FROM cbr_reference_cases;")
-        all_cases = generate_1000_reference_cases()
-        now_str = "2026-09-02T12:00:00"
+    if count == 0:
+        all_cases = generate_1000_reference_cases(seed=seed)
+        now_str = (as_of or datetime(2026, 9, 1, 9)).isoformat()
 
         insert_rows = [
             (
@@ -213,8 +215,8 @@ def seed_1000_cbr_cases_if_needed(conn: sqlite3.Connection):
         INSERT INTO cbr_reference_cases (
             reference_id, product_code, dpd_intake, root_cause, effective_levers,
             resolution_playbook, recovery_rate, days_to_resolve, compliance_review,
-            persona_vector_json, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            persona_vector_json, created_at, data_origin
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNTHETIC')
         """, insert_rows)
         conn.commit()
 
@@ -233,7 +235,7 @@ def _load_cbr_cache_from_db(conn: sqlite3.Connection):
     cursor = conn.cursor()
     cursor.execute("""
     SELECT reference_id, product_code, dpd_intake, root_cause, effective_levers,
-           resolution_playbook, recovery_rate, days_to_resolve, compliance_review, persona_vector_json
+           resolution_playbook, recovery_rate, days_to_resolve, compliance_review, persona_vector_json, data_origin
     FROM cbr_reference_cases;
     """)
     rows = cursor.fetchall()
@@ -244,6 +246,7 @@ def _load_cbr_cache_from_db(conn: sqlite3.Connection):
         vec = np.array(json.loads(r["persona_vector_json"]), dtype=np.float32)
         vectors.append(vec)
         metadata.append({
+            "data_origin": r["data_origin"],
             "reference_id": r["reference_id"],
             "product_code": r["product_code"],
             "dpd_intake": r["dpd_intake"],
@@ -284,6 +287,8 @@ def find_top_similar_reference_cases(
             conn.close()
 
     product = case.get("product_code", "CREDIT_CARD")
+    if not _CBR_METADATA_CACHE:
+        return []
     dpd = case.get("dpd", 5)
 
     # 1. Sinh vector truy vấn thực tế 192 chiều
@@ -301,6 +306,7 @@ def find_top_similar_reference_cases(
         sim_val = float(similarities[idx])
         # Chuẩn hóa hiển thị đẹp
         results.append({
+            "data_origin": meta.get("data_origin", "UNKNOWN"),
             "reference_id": meta["reference_id"],
             "similarity_score": round(sim_val, 4),
             "similarity_pct": f"{sim_val * 100:.1f}%",

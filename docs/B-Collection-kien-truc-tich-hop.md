@@ -1,5 +1,6 @@
 # B.COLLECTION — KIẾN TRÚC TÍCH HỢP HỆ THỐNG
 ### Quan hệ với Core Banking, LOS/RLOS/CLOS, LMS, EWS, MIS/DWH và các hệ thống liên quan
+> Cập nhật PR-01: [ADR-002](adr/ADR-002-ews-collection-runtime-foundation.md) chốt ownership và làm rõ rằng EWS tiếp tục monitoring trong/sau Collection; alert không tự mở case. Các interface dưới đây là thiết kế mục tiêu, chưa phải bằng chứng đã triển khai. Hướng dẫn chạy và phạm vi runtime hiện tại ở [README](../README.md).
 **Phiên bản:** v0.1 | **Ngày:** 01/09/2026
 **Tài liệu liên quan:** Kiến trúc tổng thể v0.2 · Collection Graph · Persona Model v0.2 · Guardrail Service v1.0 · Tech Stack MVP
 

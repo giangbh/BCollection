@@ -420,6 +420,8 @@ class DynamicDebtorPersonaEngine:
 
         return {
             "case_id": case["case_id"],
+            "data_origin": case.get("data_origin", "UNKNOWN"),
+            "simulation": True,  # Integration serving stays disabled until models are validated.
             "loan_id": loan_id,
             "debtor_cif": cif,
             "full_name": case["full_name"],

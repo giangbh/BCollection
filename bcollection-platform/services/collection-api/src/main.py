@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
+from fastapi.responses import JSONResponse
 import sys
 import os
 
@@ -20,8 +22,7 @@ from src.guardrail.repositories.obligation_repo import InMemoryObligationReposit
 from src.guardrail.repositories.counter_repo import InMemoryCounterRepository
 from src.guardrail.repositories.audit_repo import HashChainAuditRepository
 from src.guardrail.api.schemas import EvaluateRequest, TargetParty, ActionIntentPayload
-from synthetic.generator import generate_synthetic_delinquent_cases
-from ml.experiments.holdout_assignment import HoldoutManager
+from bc_runtime.settings import RuntimeSettings
 
 # Nạp các Integration Adapters theo chuẩn Hexagonal Architecture
 sys.path.insert(0, os.path.join(BASE_DIR, 'bcollection-platform/services/integration-adapters/src'))
@@ -30,10 +31,43 @@ from los_adapter import LOSAdapter
 from cic.adapter import CICAdapter
 from balance_check_service import RealTimeBalanceCheckService
 
+@asynccontextmanager
+async def lifespan(app):
+    global obl_repo, cnt_repo, aud_repo, orchestrator
+    global core_banking_adapter, los_adapter, cic_adapter, balance_checker, persona_engine
+    settings = RuntimeSettings.from_env()
+    settings.validate_adapters()
+    import database as db
+    db.DB_FILE_PATH = str(settings.database_path)
+    db.init_db()
+    db.claim_runtime_database(settings.mode)
+    app.state.settings = settings
+    obl_repo = InMemoryObligationRepository()
+    cnt_repo = InMemoryCounterRepository()
+    aud_repo = HashChainAuditRepository()
+    orchestrator = GuardrailOrchestrator(obl_repo, cnt_repo, aud_repo)
+    core_banking_adapter = CoreBankingAdapter()
+    los_adapter = LOSAdapter()
+    cic_adapter = CICAdapter()
+    balance_checker = RealTimeBalanceCheckService(core_banking_adapter)
+    persona_engine = DynamicDebtorPersonaEngine(core_banking_adapter, los_adapter, cic_adapter)
+    if settings.mode in {"demo", "test"}:
+        db.restore_demo_obligations(obl_repo)
+        for case in db.get_all_cases():
+            if case["data_origin"] == "SYNTHETIC":
+                core_banking_adapter.client.set_mock_loan({
+                    **case,
+                    "outstanding_principal": case["total_balance"],
+                    "outstanding_interest": 0.0,
+                })
+    yield
+
+
 app = FastAPI(
     title="B.Collection Platform Core API",
     description="Core Decision & Case Management API for Collector Workspace (Hexagonal Architecture)",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -44,50 +78,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Khởi tạo repositories & orchestrator L6 Guardrail
-obl_repo = InMemoryObligationRepository()
-cnt_repo = InMemoryCounterRepository()
-aud_repo = HashChainAuditRepository()
-orchestrator = GuardrailOrchestrator(obl_repo, cnt_repo, aud_repo)
-holdout_mgr = HoldoutManager()
-
-# Khởi tạo các Backend Integration Adapters (Hexagonal Ports)
-core_banking_adapter = CoreBankingAdapter()
-los_adapter = LOSAdapter()
-cic_adapter = CICAdapter()
-balance_checker = RealTimeBalanceCheckService(core_banking_adapter)
-
 # Khởi tạo Engine Tính toán Chân dung Persona 360 Động (AI + Formulas + Multi-adapter)
 from persona_engine import DynamicDebtorPersonaEngine
 from database import (
-    init_db, seed_cases_to_db, get_all_cases, get_case_by_id,
+    get_all_cases, get_case_by_id,
     update_case_wrapup, get_case_history, get_db_schema_info, get_connection
 )
 
-# Khởi tạo Dynamic Persona Engine với các Adapter Hexagonal
-persona_engine = DynamicDebtorPersonaEngine(
-    core_adapter=core_banking_adapter,
-    los_adapter=los_adapter,
-    cic_adapter=cic_adapter
-)
-
-# Nạp 500 hồ sơ synthetic vào CSDL SQLite
-raw_portfolio = generate_synthetic_delinquent_cases(num_cases=500, seed=42)
-holdout_mgr = HoldoutManager()
-
-# Khởi tạo bảng CSDL SQLite và nạp 500 hồ sơ + lịch sử mẫu
-init_db()
-seed_cases_to_db(raw_portfolio, holdout_mgr, obl_repo)
-
-# Đồng bộ dữ liệu vào MockCoreBankingApiClient nếu cần
-for c in raw_portfolio:
-    if hasattr(core_banking_adapter.client, "set_mock_loan"):
-        core_banking_adapter.client.set_mock_loan(c)
+@app.middleware("http")
+async def enforce_runtime_profile(request, call_next):
+    settings = request.app.state.settings
+    path = request.url.path.rstrip("/")
+    if settings.mode == "integration":
+        # Persona/CBR/ASR still contain synthetic heuristics. Do not present them
+        # as live intelligence or enable mutations against integration data.
+        simulated = path.endswith(("/persona", "/similar-cases"))
+        if request.method not in {"GET", "HEAD", "OPTIONS"} or simulated:
+            return JSONResponse(status_code=503, content={"detail": "PR-01 integration is read-only; simulated intelligence and actions are disabled"})
+    response = await call_next(request)
+    response.headers["X-BCollection-Mode"] = settings.mode
+    response.headers["X-BCollection-Simulation"] = str(settings.mode != "integration").lower()
+    return response
 
 
 @app.get("/health")
 def health():
-    return {"status": "HEALTHY", "service": "bcollection-platform-api", "database": "sqlite3"}
+    return {"status": "HEALTHY", "service": "bcollection-platform-api", "database": "sqlite3", **runtime_info()}
+
+
+@app.get("/api/runtime")
+def runtime_info():
+    return {
+        "mode": app.state.settings.mode,
+        "simulation": app.state.settings.mode in {"demo", "test"},
+        "integration_read_only": app.state.settings.mode == "integration",
+        "production_ready": False,
+    }
 
 
 @app.get("/api/db/schema")
@@ -373,5 +399,4 @@ def transcribe_and_extract_call(case_id: str, payload: CallTranscribeRequest):
         },
         "auto_notes": auto_notes
     }
-
 

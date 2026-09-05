@@ -3,8 +3,11 @@ import json
 import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
+from pathlib import Path
+from contextlib import closing
+from bc_runtime.settings import RuntimeSettings
 
-DB_FILE_PATH = os.path.join(os.path.dirname(__file__), "..", "bcollection.db")
+DB_FILE_PATH = str(RuntimeSettings.from_env().database_path)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -15,6 +18,7 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db():
     """Khởi tạo cấu trúc các bảng trong cơ sở dữ liệu SQLite"""
+    Path(DB_FILE_PATH).parent.mkdir(parents=True, exist_ok=True)
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -96,12 +100,47 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cases_dpd ON cases(dpd);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_interactions_case ON case_interactions(case_id);")
 
+    # Additive migration: existing data is UNKNOWN, never relabelled as real/demo.
+    for table in ("cases", "case_interactions", "cbr_reference_cases"):
+        columns = {row[1] for row in cursor.execute(f"PRAGMA table_info({table})")}
+        if "data_origin" not in columns:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN data_origin TEXT NOT NULL DEFAULT 'UNKNOWN'")
+    cursor.execute("CREATE TABLE IF NOT EXISTS runtime_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+
     conn.commit()
     conn.close()
 
 
-def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo):
+def claim_runtime_database(mode: str):
+    """Bind a DB to one profile. No business data is inserted by startup."""
+    with closing(get_connection()) as conn, conn:
+        current = conn.execute("SELECT value FROM runtime_metadata WHERE key = 'mode'").fetchone()
+        if current and current[0] != mode:
+            raise ValueError("Database belongs to another runtime profile; use a separate database")
+        if mode == "integration":
+            for table in ("cases", "case_interactions", "cbr_reference_cases"):
+                if conn.execute(f"SELECT 1 FROM {table} WHERE data_origin != 'EXTERNAL' LIMIT 1").fetchone():
+                    raise ValueError("integration refuses synthetic or unclassified data")
+        conn.execute("INSERT OR IGNORE INTO runtime_metadata VALUES ('mode', ?)", (mode,))
+
+
+def restore_demo_obligations(obl_repo):
+    """Rehydrate mock obligations from persisted demo cases without seeding."""
+    for row in get_all_cases():
+        if row["data_origin"] != "SYNTHETIC":
+            continue
+        obl_repo.add_obligation(row["loan_id"], row["debtor_cif"], "BORROWED", source="SYNTHETIC")
+        if row["guarantor_id"]:
+            obl_repo.add_obligation(row["loan_id"], row["guarantor_id"], "GUARANTEES", source="SYNTHETIC")
+
+
+def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo, as_of=None, reference_seed=42):
     """Nạp 500 hồ sơ ban đầu vào SQLite nếu bảng cases chưa có dữ liệu"""
+    if RuntimeSettings.from_env().mode not in {"demo", "test"}:
+        raise ValueError("Synthetic seeding is forbidden in integration")
+    if not raw_portfolio or any(c.get("data_origin") != "SYNTHETIC" for c in raw_portfolio):
+        raise ValueError("Seed accepts explicitly labelled synthetic data only")
+    seed_time = as_of or datetime.now()
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -109,7 +148,7 @@ def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo)
     count = cursor.fetchone()[0]
 
     if count == 0:
-        now_str = datetime.now().isoformat()
+        now_str = seed_time.isoformat()
         for idx, c in enumerate(raw_portfolio):
             case_id = c["case_id"]
             loan_id = c["loan_id"]
@@ -130,8 +169,8 @@ def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo)
             INSERT INTO cases (
                 case_id, loan_id, debtor_cif, full_name, phone_e164, product_code,
                 dpd, overdue_amount, total_balance, status, experiment_arm, guarantor_id,
-                ptp_amount, ptp_date, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ptp_amount, ptp_date, created_at, updated_at, data_origin
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNTHETIC')
             """, (
                 case_id, loan_id, cif, c["full_name"], c["phone_e164"], c["product_code"],
                 c["dpd"], c["overdue_amount"], total_bal, status, arm, guarantor_id,
@@ -140,13 +179,13 @@ def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo)
 
             # Nạp lịch sử mẫu cho các case quá hạn > 5 ngày
             if c.get("dpd", 0) > 5:
-                days_ago_1 = (datetime.now() - timedelta(days=1, hours=2, minutes=15)).strftime("%d/%m/%Y %H:%M")
-                days_ago_2 = (datetime.now() - timedelta(days=3, hours=4, minutes=30)).strftime("%d/%m/%Y %H:%M")
+                days_ago_1 = (seed_time - timedelta(days=1, hours=2, minutes=15)).strftime("%d/%m/%Y %H:%M")
+                days_ago_2 = (seed_time - timedelta(days=3, hours=4, minutes=30)).strftime("%d/%m/%Y %H:%M")
                 cursor.execute("""
                 INSERT INTO case_interactions (
                     interaction_id, case_id, channel, collector_name, timestamp,
-                    outcome, outcome_label, ptp_amount, ptp_date, notes, sentiment, guardrail_token, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    outcome, outcome_label, ptp_amount, ptp_date, notes, sentiment, guardrail_token, created_at, data_origin
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNTHETIC')
                 """, (
                     f"INT-{case_id}-02", case_id, "VOICE", "Lê Văn Chuyên (CB-8842)", days_ago_1,
                     "BUSY_NO_ANSWER", "Không nghe máy", None, None,
@@ -156,8 +195,8 @@ def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo)
                 cursor.execute("""
                 INSERT INTO case_interactions (
                     interaction_id, case_id, channel, collector_name, timestamp,
-                    outcome, outcome_label, ptp_amount, ptp_date, notes, sentiment, guardrail_token, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    outcome, outcome_label, ptp_amount, ptp_date, notes, sentiment, guardrail_token, created_at, data_origin
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNTHETIC')
                 """, (
                     f"INT-{case_id}-01", case_id, "SMS", "Hệ thống Tự động (Batch)", days_ago_2,
                     "SMS_SENT", "SMS VietQR đã gửi", None, None,
@@ -176,7 +215,7 @@ def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo)
 
     # Nạp 1000 hồ sơ CBR Reference Case vào SQLite (Vector 192 chiều thực tế)
     from cbr_engine import seed_1000_cbr_cases_if_needed
-    seed_1000_cbr_cases_if_needed(conn)
+    seed_1000_cbr_cases_if_needed(conn, seed=reference_seed, as_of=seed_time)
 
     conn.close()
 
@@ -204,6 +243,8 @@ def update_case_wrapup(case_id: str, outcome: str, ptp_amount: Optional[float], 
     cursor = conn.cursor()
     now_str = datetime.now().isoformat()
     now_display = datetime.now().strftime("%d/%m/%Y %H:%M")
+    origin = cursor.execute("SELECT data_origin FROM cases WHERE case_id = ?", (case_id,)).fetchone()
+    data_origin = origin[0] if origin else "UNKNOWN"
 
     # Xác định status mới
     new_status = "PTP_SCHEDULED" if outcome == "PTP_AGREED" else "IN_TREATMENT"
@@ -228,14 +269,14 @@ def update_case_wrapup(case_id: str, outcome: str, ptp_amount: Optional[float], 
     cursor.execute("""
     INSERT INTO case_interactions (
         interaction_id, case_id, channel, collector_name, timestamp,
-        outcome, outcome_label, ptp_amount, ptp_date, notes, sentiment, guardrail_token, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        outcome, outcome_label, ptp_amount, ptp_date, notes, sentiment, guardrail_token, created_at, data_origin
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         interaction_id, case_id, "VOICE", "Lê Văn Chuyên (CB-8842)", now_display,
         outcome, outcome_label, ptp_amount, ptp_date,
         notes or "Hoàn tất cuộc gọi đàm phán nhắc nợ qua Softphone.",
         sentiment, (guardrail_token[:22] + "...") if guardrail_token else "N/A",
-        now_str
+        now_str, data_origin
     ))
 
     conn.commit()

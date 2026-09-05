@@ -2,7 +2,7 @@ import random
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
-def generate_synthetic_delinquent_cases(num_cases: int = 500, seed: int = 42) -> List[Dict[str, Any]]:
+def generate_synthetic_delinquent_cases(num_cases: int = 500, seed: int = 42, as_of=None) -> List[Dict[str, Any]]:
     """
     Sinh dữ liệu tổng hợp (Synthetic Data) giả lập chuẩn cho môi trường DEV/UAT.
     Hỗ trợ sinh 500+ hồ sơ nợ B1 đa dạng, chuẩn hoá format ngân hàng bán lẻ.
@@ -16,7 +16,7 @@ def generate_synthetic_delinquent_cases(num_cases: int = 500, seed: int = 42) ->
     products = ["CREDIT_CARD", "UNSECURED_LOAN", "AUTO_LOAN", "MORTGAGE"]
     
     cases = []
-    base_date = datetime.now()
+    base_date = as_of or datetime.now()
     
     for i in range(1, num_cases + 1):
         cif = f"CIF{100000 + i:06d}"
@@ -43,6 +43,7 @@ def generate_synthetic_delinquent_cases(num_cases: int = 500, seed: int = 42) ->
             interest = round(overdue_amt * 0.02, -3)
         
         cases.append({
+            "data_origin": "SYNTHETIC",
             "case_id": f"CASE-2026-{10000 + i}",
             "loan_id": f"LOAN-{product[:2]}-{20000 + i}",
             "debtor_cif": cif,

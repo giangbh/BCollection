@@ -99,7 +99,7 @@ THÁNG 1: NỀN TẢNG & DỮ LIỆU      THÁNG 2: WORKFLOW & WORKSPACE   THÁN
   * **Chạy Data Profiling trên 500.000 hồ sơ quá hạn lịch sử:** Đo tỷ lệ SĐT rác, tỷ lệ khuyết thông tin người bảo lãnh (`IF-LOS-02`).
   * Xây dựng script sinh dữ liệu tổng hợp (*Synthetic Data Generator*) cho môi trường DEV.
 * **Backend:**
-  * Dựng khung thư viện `bc-domain` và `bc-guardrail-client`.
+  * Dựng khung thư viện `bc_domain` và `bc-guardrail-client`.
   * Khởi tạo bảng dữ liệu `party_obligation` trên PostgreSQL.
 
 #### 🎯 Sprint 2 (Tuần 3 – 4): L6 Guardrail Service v1 & Làm sạch Số điện thoại

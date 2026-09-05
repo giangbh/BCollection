@@ -10,6 +10,7 @@ export const App: React.FC = () => {
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [personaData, setPersonaData] = useState<any>(null);
   const [loadingPersona, setLoadingPersona] = useState(false);
+  const [runtime, setRuntime] = useState<{ mode: string; simulation: boolean } | null>(null);
   const [caseHistory, setCaseHistory] = useState<any[]>([]);
 
   // Softphone state
@@ -23,6 +24,7 @@ export const App: React.FC = () => {
 
   // Fetch initial case queue
   useEffect(() => {
+    fetch('/api/runtime').then((res) => res.json()).then(setRuntime).catch(() => setRuntime(null));
     fetch('/api/cases')
       .then((res) => res.json())
       .then((data) => {
@@ -134,6 +136,11 @@ export const App: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <div role="status" style={{ padding: '8px 16px', background: '#713f12', color: '#fff', fontSize: 13, flexShrink: 0 }}>
+        {!runtime ? 'Chưa xác định chế độ môi trường - không dùng cho vận hành thực tế.' : runtime.simulation
+          ? `${runtime.mode.toUpperCase()} - Mô phỏng; dữ liệu seed là SYNTHETIC, không phải kết quả thu hồi thực tế.`
+          : 'INTEGRATION - Chỉ đọc; AI mô phỏng và hành động thu hồi bị vô hiệu hóa trong PR-01.'}
+      </div>
       {/* Top Header & Softphone */}
       <HeaderSoftphone
         activeCase={selectedCase}

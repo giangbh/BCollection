@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+testpaths = ["tests", "bcollection-platform", "bcollection-data/tests", "bcollection-guardrail/tests"]
+python_files = ["test_*.py", "run_tests.py"]
+pythonpath = [
+  "bcollection-platform/libs",
+  "bcollection-platform/services/collection-api/src",
+  "bcollection-platform/services/integration-adapters/src",
+  "bcollection-data",
+  "bcollection-guardrail",
+]
+addopts = "-ra"
