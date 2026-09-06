@@ -23,6 +23,8 @@ from src.guardrail.repositories.counter_repo import InMemoryCounterRepository
 from src.guardrail.repositories.audit_repo import HashChainAuditRepository
 from src.guardrail.api.schemas import EvaluateRequest, TargetParty, ActionIntentPayload
 from bc_runtime.settings import RuntimeSettings
+from case_service import CaseService, CaseConflict, CaseNotFound
+from bc_domain.case_rules import obligation_status
 
 # Nạp các Integration Adapters theo chuẩn Hexagonal Architecture
 sys.path.insert(0, os.path.join(BASE_DIR, 'bcollection-platform/services/integration-adapters/src'))
@@ -55,11 +57,18 @@ async def lifespan(app):
         db.restore_demo_obligations(obl_repo)
         for case in db.get_all_cases():
             if case["data_origin"] == "SYNTHETIC":
-                core_banking_adapter.client.set_mock_loan({
-                    **case,
-                    "outstanding_principal": case["total_balance"],
-                    "outstanding_interest": 0.0,
-                })
+                conn = db.get_connection()
+                try:
+                    for exposure in conn.execute("SELECT * FROM case_exposures WHERE case_id=?", (case["case_id"],)):
+                        core_banking_adapter.client.set_mock_loan({
+                            **case, "loan_id": exposure["loan_id"], "dpd": exposure["dpd"],
+                            "overdue_amount": exposure["overdue_vnd"],
+                            "outstanding_principal": exposure["principal_vnd"],
+                            "outstanding_interest": exposure["interest_vnd"],
+                            "source_version": max(0, exposure["source_version"]),
+                        })
+                finally:
+                    conn.close()
     yield
 
 
@@ -82,7 +91,7 @@ app.add_middleware(
 from persona_engine import DynamicDebtorPersonaEngine
 from database import (
     get_all_cases, get_case_by_id,
-    update_case_wrapup, get_case_history, get_db_schema_info, get_connection
+    get_case_history, get_db_schema_info, get_connection
 )
 
 @app.middleware("http")
@@ -205,6 +214,18 @@ def evaluate_call_intent(case_id: str, payload: CallIntentRequest):
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
+    if case["lifecycle"] != "OPEN" or case["contact_hold_reason"]:
+        raise HTTPException(409, "Case is closed or contact is held for reconciliation")
+    # Fail closed across every exposure, including partial recent payments.
+    state = financial_state(case_id)
+    try:
+        for exposure in state["case_exposures"]:
+            check = balance_checker.verify_action_eligibility(exposure["loan_id"], case["debtor_cif"])
+            if not check["can_proceed"]:
+                return {"is_allowed": False, "blocking_reason": check["reason"]}
+    except Exception as exc:
+        raise HTTPException(503, "Core evidence unavailable; contact blocked") from exc
+
     eval_req = EvaluateRequest(
         request_id=f"CALL-REQ-{case_id}-{int(datetime.now().timestamp())}",
         loan_id=case["loan_id"],
@@ -230,37 +251,39 @@ def evaluate_call_intent(case_id: str, payload: CallIntentRequest):
     }
 
 
-class CallWrapupRequest(BaseModel):
+class CommandRequest(BaseModel):
+    command_id: str = Field(min_length=1, max_length=128)
+    expected_version: int = Field(ge=0, strict=True)
+
+
+def run_command(case_id, payload, kind, data=None):
+    try:
+        return CaseService().execute(case_id, payload.command_id, payload.expected_version, kind,
+            data if data is not None else payload.model_dump(exclude={"command_id", "expected_version"}))
+    except CaseNotFound:
+        raise HTTPException(404, "Case not found")
+    except CaseConflict as exc:
+        raise HTTPException(409, str(exc))
+    except (ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(422, str(exc))
+
+
+class CallWrapupRequest(CommandRequest):
     guardrail_token: str
     outcome: str  # PTP_AGREED, REFUSED, BUSY_NO_ANSWER
     ptp_amount: Optional[float] = None
     ptp_date: Optional[str] = None
     notes: Optional[str] = None
+    loan_id: Optional[str] = None
 
 
 @app.post("/api/cases/{case_id}/call-wrapup")
 def submit_call_wrapup(case_id: str, payload: CallWrapupRequest):
-    """Ghi nhận kết quả cuộc gọi và UPDATE trực tiếp vào CSDL SQLite"""
-    case = get_case_by_id(case_id)
-    if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
-
-    # Tăng biến đếm qua Guardrail commit
-    loan_id = case["loan_id"]
-    cif = case["debtor_cif"]
-    cnt_repo.increment_attempt(loan_id, cif, "VOICE")
-
-    # Thực hiện UPDATE bảng cases và INSERT bảng case_interactions trong SQLite
-    res = update_case_wrapup(
-        case_id=case_id,
-        outcome=payload.outcome,
-        ptp_amount=payload.ptp_amount,
-        ptp_date=payload.ptp_date,
-        notes=payload.notes,
-        guardrail_token=payload.guardrail_token
-    )
-    res["committed"] = True
-    return res
+    result = run_command(case_id, payload, "wrapup")
+    if not result["replayed"]:
+        case = get_case_by_id(case_id)
+        cnt_repo.increment_attempt(case["loan_id"], case["debtor_cif"], "VOICE")
+    return result
 
 
 @app.get("/api/cases/{case_id}/history", response_model=List[Dict[str, Any]])
@@ -269,37 +292,54 @@ def get_case_history_api(case_id: str):
     return get_case_history(case_id)
 
 
-@app.post("/api/cases/{case_id}/balance-check")
-def check_case_balance_realtime(case_id: str):
-    """
-    Kiểm tra số dư thời gian thực với Core Banking qua CoreBankingAdapter (IF-CORE-04).
-    Chống đòi nợ oan: Nếu khách hàng đã trả tiền trong 15 phút hoặc nợ đã hết,
-    hệ thống tự động hủy nhắc nợ và đổi trạng thái hồ sơ sang CURED trong SQLite DB.
-    """
+@app.get("/api/cases/{case_id}/financial-state")
+def financial_state(case_id: str):
     case = get_case_by_id(case_id)
     if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
-
-    loan_id = case["loan_id"]
-    debtor_cif = case["debtor_cif"]
-
-    check_res = balance_checker.verify_action_eligibility(loan_id, debtor_cif)
-    new_status = case["status"]
-    if not check_res["can_proceed"]:
-        new_status = "CURED"
-        conn = get_connection()
-        conn.cursor().execute("UPDATE cases SET status = 'CURED', overdue_amount = 0 WHERE case_id = ?;", (case_id,))
-        conn.commit()
+        raise HTTPException(404, "Case not found")
+    conn = get_connection()
+    try:
+        result = {"case": case, **{table: [dict(r) for r in conn.execute(f"SELECT * FROM {table} WHERE case_id=?", (case_id,))] for table in ("case_exposures", "ptps", "payment_ledger", "case_transition_log")}}
+        for exposure in result["case_exposures"]:
+            exposure["obligation_status"] = obligation_status(exposure)
+        return result
+    finally:
         conn.close()
 
-    return {
-        "case_id": case_id,
-        "loan_id": loan_id,
-        "can_proceed": check_res["can_proceed"],
-        "reason": check_res["reason"],
-        "message": check_res["message"],
-        "updated_case_status": new_status
-    }
+
+@app.post("/api/cases/{case_id}/balance-check")
+def check_case_balance_realtime(case_id: str, payload: CommandRequest):
+    state = financial_state(case_id)
+    snapshots, recent = [], False
+    try:
+        for exposure in state["case_exposures"]:
+            s = core_banking_adapter.get_realtime_balance(exposure["loan_id"])
+            snapshots.append({
+                "loan_id": s.loan_id, "debtor_cif": s.debtor_cif,
+                "overdue_amount": s.overdue_amount, "outstanding_principal": s.outstanding_principal,
+                "outstanding_interest": s.outstanding_interest, "dpd": s.days_past_due,
+                "as_of": s.as_of.isoformat(), "source_version": s.source_version,
+            })
+            payment = core_banking_adapter.check_recent_payment(s.loan_id)
+            recent = recent or bool(payment)
+    except Exception as exc:
+        raise HTTPException(503, "Core evidence unavailable; contact must remain blocked") from exc
+    result = run_command(case_id, payload, "balance_check", {"snapshots": snapshots, "recent_payment": recent})
+    return {**result, "can_proceed": result["lifecycle"] == "OPEN" and not result["contact_hold_reason"],
+            "reason": result["contact_hold_reason"] or result["new_case_status"],
+            "updated_case_status": result["new_case_status"]}
+
+
+class FinancialCommandRequest(CommandRequest):
+    # Explicit demo/test ingress. Integration writes remain disabled by middleware.
+    payload: Dict[str, Any]
+
+
+@app.post("/api/cases/{case_id}/commands/{kind}")
+def financial_command(case_id: str, kind: str, request: FinancialCommandRequest):
+    if kind not in {"balance", "payment", "observe_ptp", "link_exposure", "reconcile"}:
+        raise HTTPException(422, "Unsupported financial command")
+    return run_command(case_id, request, kind, request.payload)
 
 
 class CallTranscribeRequest(BaseModel):
@@ -399,4 +439,3 @@ def transcribe_and_extract_call(case_id: str, payload: CallTranscribeRequest):
         },
         "auto_notes": auto_notes
     }
-

@@ -23,23 +23,10 @@ def test_valid_case_transitions():
         status=CaseStatus.CREATED
     )
 
-    # CREATED -> IN_TREATMENT
-    CaseWorkflowStateMachine.transition(case, CaseStatus.IN_TREATMENT)
-    assert case.status == CaseStatus.IN_TREATMENT
-
-    # IN_TREATMENT -> PTP_SCHEDULED
-    CaseWorkflowStateMachine.transition(case, CaseStatus.PTP_SCHEDULED, {"ptp_amount": 2400000, "ptp_date": datetime(2026, 9, 10)})
-    assert case.status == CaseStatus.PTP_SCHEDULED
-    assert case.ptp_amount == 2400000
-
-    # PTP_SCHEDULED -> PTP_KEPT
-    CaseWorkflowStateMachine.transition(case, CaseStatus.PTP_KEPT)
-    assert case.status == CaseStatus.PTP_KEPT
-
-    # PTP_KEPT -> RESOLVED_CURED
-    CaseWorkflowStateMachine.transition(case, CaseStatus.RESOLVED_CURED, {"recovery_amount": 2400000})
-    assert case.status == CaseStatus.RESOLVED_CURED
-    assert case.cure_flag is True
+    assert CaseWorkflowStateMachine.can_transition(CaseStatus.CREATED, CaseStatus.IN_TREATMENT)
+    with pytest.raises(ValueError, match="CaseService"):
+        CaseWorkflowStateMachine.transition(case, CaseStatus.IN_TREATMENT)
+    assert case.status == CaseStatus.CREATED
 
 def test_invalid_case_transition_raises_error():
     case = CollectionCase(

@@ -1,5 +1,7 @@
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+from bc_domain.case_rules import vnd
 from .client import CoreBankingApiClient
 
 class MockCoreBankingApiClient(CoreBankingApiClient):
@@ -57,17 +59,24 @@ class MockCoreBankingApiClient(CoreBankingApiClient):
 
     def simulate_incoming_payment(self, loan_id: str, debtor_cif: str, amount: float, channel: str = "VIETQR"):
         """Giả lập có giao dịch chuyển tiền thanh toán vào Core Banking"""
-        if loan_id in self._loans:
-            self._loans[loan_id]["overdue_amount"] = 0.0
-            self._loans[loan_id]["dpd"] = 0
-            self._loans[loan_id]["loan_status"] = "ACTIVE"
+        amount = vnd(amount)
+        if not amount or loan_id not in self._loans or self._loans[loan_id]["debtor_cif"] != debtor_cif:
+            raise ValueError("Known loan, matching CIF and positive payment required")
+        loan = self._loans[loan_id]
+        loan["overdue_amount"] = max(0, loan["overdue_amount"] - amount)
+        paid_interest = min(loan["outstanding_interest"], amount)
+        loan["outstanding_interest"] -= paid_interest
+        loan["outstanding_principal"] = max(0, loan["outstanding_principal"] - (amount - paid_interest))
+        if loan["overdue_amount"] == 0:
+            loan["dpd"] = 0
+            loan["loan_status"] = "ACTIVE"
 
         payment_record = {
-            "event_id": f"PAY-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            "event_id": f"PAY-{uuid4()}",
             "loan_id": loan_id,
             "debtor_cif": debtor_cif,
             "amount_paid": amount,
-            "paid_at": datetime.now().isoformat(),
+            "paid_at": datetime.now(timezone.utc).isoformat(),
             "channel": channel
         }
         if loan_id not in self._payments:
@@ -79,6 +88,7 @@ class MockCoreBankingApiClient(CoreBankingApiClient):
         """Giả lập phản hồi endpoint GET /core/v1/loans/{loan_id}/balance"""
         if loan_id in self._loans:
             l = self._loans[loan_id]
+            l["source_version"] = l.get("source_version", 0) + 1
             return {
                 "status": "SUCCESS",
                 "data": {
@@ -88,8 +98,9 @@ class MockCoreBankingApiClient(CoreBankingApiClient):
                     "outstanding_interest": l["outstanding_interest"],
                     "overdue_amount": l["overdue_amount"],
                     "dpd": l["dpd"],
-                    "is_fully_paid": (l["overdue_amount"] <= 0),
-                    "as_of": datetime.now().isoformat()
+                    "is_fully_paid": (l["outstanding_principal"] + l["outstanding_interest"] == 0),
+                    "as_of": datetime.now(timezone.utc).isoformat(),
+                    "source_version": l["source_version"],
                 }
             }
         # Mặc định cho case chưa khai báo
@@ -103,7 +114,8 @@ class MockCoreBankingApiClient(CoreBankingApiClient):
                 "overdue_amount": 5000000.0,
                 "dpd": 12,
                 "is_fully_paid": False,
-                "as_of": datetime.now().isoformat()
+                "as_of": datetime.now(timezone.utc).isoformat(),
+                "source_version": 0,
             }
         }
 
@@ -112,7 +124,7 @@ class MockCoreBankingApiClient(CoreBankingApiClient):
         events = self._payments.get(loan_id, [])
         if not events:
             return []
-        cutoff = datetime.now() - timedelta(minutes=lookback_minutes)
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=lookback_minutes)
         results = []
         for ev in reversed(events):
             ev_time = datetime.fromisoformat(ev["paid_at"])

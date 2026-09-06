@@ -11,6 +11,8 @@ class ChannelType(str, Enum):
 
 
 class CaseStatus(str, Enum):
+    SUSPENDED = "SUSPENDED"
+    PROBATION = "PROBATION"
     CREATED = "CREATED"
     ASSIGNED = "ASSIGNED"
     IN_TREATMENT = "IN_TREATMENT"
@@ -23,6 +25,28 @@ class CaseStatus(str, Enum):
     RESOLVED_CURED = "RESOLVED_CURED"
     SETTLED_WRITEOFF = "SETTLED_WRITEOFF"
     CLOSED = "CLOSED"
+
+
+class CaseStage(str, Enum):
+    PRE_COLLECTION = "PRE_COLLECTION"
+    EARLY_COLLECTION = "EARLY_COLLECTION"
+    RECOVERY = "RECOVERY"
+
+
+class CaseLifecycle(str, Enum):
+    OPEN = "OPEN"
+    SUSPENDED = "SUSPENDED"
+    PROBATION = "PROBATION"
+    CLOSED = "CLOSED"
+
+
+class PTPStatus(str, Enum):
+    UNVERIFIED = "UNVERIFIED"
+    SCHEDULED = "SCHEDULED"
+    PARTIALLY_KEPT = "PARTIALLY_KEPT"
+    KEPT = "KEPT"
+    BROKEN = "BROKEN"
+    CANCELLED = "CANCELLED"
 
 
 class ExperimentArm(str, Enum):

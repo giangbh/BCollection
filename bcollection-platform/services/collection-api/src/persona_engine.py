@@ -159,9 +159,7 @@ class D2WillingnessEngine:
         if actual_ptp_kept_rate is not None:
             ptp_kept_rate = actual_ptp_kept_rate
         else:
-            base_rate = ptp_cfg["base_rate"]
-            decay_days = ptp_cfg["decay_cycle_days"]
-            ptp_kept_rate = max(ptp_cfg["min_rate"], min(ptp_cfg["max_rate"], base_rate - (dpd / decay_days)))
+            ptp_kept_rate = 0.5  # Neutral simulation prior, not an observed outcome.
         s_ptp = ptp_kept_rate * 100.0
 
         # 2. Self-cure
@@ -189,7 +187,7 @@ class D2WillingnessEngine:
         if paying_other_banks_while_overdue:
             drivers.append("Cảnh báo: Đang trả nợ TCTD khác trong khi nợ Ngân hàng")
         else:
-            drivers.append(f"Tỷ lệ giữ cam kết hẹn trả (PTP Kept) {ptp_kept_rate*100:.0f}%")
+            drivers.append(f"Tỷ lệ giữ PTP đã đối soát {ptp_kept_rate*100:.0f}%" if actual_ptp_kept_rate is not None else "Chưa có PTP đã đối soát; dùng prior mô phỏng trung tính")
 
         if self_cure_propensity >= 0.70:
             drivers.append(f"Xác suất tự khỏi cao {self_cure_propensity*100:.0f}% trong 48h")
@@ -224,7 +222,7 @@ class D3ContactabilityEngine:
         s_rpc = expected_rpc_rate * 100.0
 
         # Digital footprint (Lấy số lần tương tác số từ DB hoặc fallback hash)
-        logins = app_logins if app_logins is not None else ((cif_hash % 15) + 2)
+        logins = app_logins if app_logins is not None else 0
         if logins >= dig_cfg["high_logins"]:
             s_digital = dig_cfg["high_score"]
         elif logins >= dig_cfg["medium_logins"]:
@@ -319,7 +317,7 @@ class DynamicDebtorPersonaEngine:
         inferred_day = getattr(inflow_profile, "inferred_pay_day_of_month", 12) or 12
         ml01_features = {
             "dpd": dpd,
-            "historical_on_time_ratio": behavioral["historical_on_time_ratio"],
+            "historical_on_time_ratio": behavioral["historical_on_time_ratio"] if behavioral["historical_on_time_ratio"] is not None else 0.5,
             "days_since_salary_day": abs(datetime.now().day - inflow_profile.salary_day_of_month),
             "prior_cure_count": behavioral["prior_cure_count"],
             "dti_ratio": min(0.9, monthly_obligation / max(1.0, inflow_profile.verified_inflow_avg_monthly)),
@@ -349,9 +347,7 @@ class DynamicDebtorPersonaEngine:
             product_code=prod_code
         )
 
-        actual_ptp = None
-        if behavioral["ptp_agreed_count"] > 0:
-            actual_ptp = 0.90  # Khách hàng có tiền lệ giữ cam kết PTP tốt
+        actual_ptp = behavioral["ptp_kept_rate"]
 
         willingness_data = D2WillingnessEngine.calculate(
             dpd=dpd,
@@ -451,7 +447,11 @@ class DynamicDebtorPersonaEngine:
                 "total_interactions": behavioral["total_interactions"],
                 "historical_on_time_ratio": behavioral["historical_on_time_ratio"],
                 "prior_cure_count": behavioral["prior_cure_count"],
-                "app_logins_monthly": behavioral["app_logins"]
+                "app_logins_monthly": behavioral["app_logins"],
+                "ptp_kept_rate": behavioral["ptp_kept_rate"],
+                "ptp_mature_count": behavioral["ptp_mature_count"],
+                "missing_features": behavioral["missing_features"],
+                "model_input_policy": "Missing installment history uses neutral 0.5 simulation prior; self-cure history uses 0, not an observed value."
             },
             "recommended_playbook": cbr_playbook,
             "similar_references": similar_cases,

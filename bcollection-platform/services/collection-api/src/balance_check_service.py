@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import sys
 import os
 
@@ -12,7 +12,7 @@ class RealTimeBalanceCheckService:
     Cơ chế Chống Đòi nợ Nhầm (Anti-False-Delinquency Guard):
     Trước khi gửi tin nhắn hoặc gọi điện, hệ thống kiểm tra số dư tức thời với Core Banking.
     Nếu khách hàng đã thanh toán (overdue_amount <= 0 hoặc có sự kiện trả tiền trong 15 phút qua),
-    hành động sẽ bị HỦY ngay lập tức và Case được cập nhật thành CURED.
+    hành động bị chặn; chỉ CaseService được quyết định cure từ số dư đã đối soát.
     """
     def __init__(self, core_adapter: CoreBankingAdapter):
         self.core_adapter = core_adapter
@@ -24,6 +24,8 @@ class RealTimeBalanceCheckService:
         # 1. Kiểm tra sự kiện thanh toán vừa phát sinh trong 15 phút
         recent_payment = self.core_adapter.check_recent_payment(loan_id, lookback_minutes=15)
         if recent_payment:
+            if recent_payment.debtor_cif != debtor_cif:
+                raise ValueError("Payment CIF mismatch")
             return {
                 "can_proceed": False,
                 "reason": "PAYMENT_RECENTLY_DETECTED",
@@ -33,6 +35,8 @@ class RealTimeBalanceCheckService:
 
         # 2. Kiểm tra số dư nợ quá hạn thời gian thực
         snapshot = self.core_adapter.get_realtime_balance(loan_id)
+        if snapshot.debtor_cif != debtor_cif or not -30 <= (datetime.now(timezone.utc) - snapshot.as_of).total_seconds() <= 900:
+            raise ValueError("Untrusted or stale Core snapshot")
         if snapshot.is_fully_paid or snapshot.overdue_amount <= 0:
             return {
                 "can_proceed": False,

@@ -128,7 +128,8 @@ def test_database_debtor_behavioral_metrics():
     assert "prior_cure_count" in metrics
     assert "digital_interactions_count" in metrics
     assert "app_logins" in metrics
-    assert 0.0 <= metrics["historical_on_time_ratio"] <= 1.0
+    assert metrics["historical_on_time_ratio"] is None
+    assert metrics["ptp_kept_rate"] is None
 
 
 def test_d1_living_wage_floor_penalty_and_relative_cushion():

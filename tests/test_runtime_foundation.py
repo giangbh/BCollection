@@ -64,7 +64,9 @@ def test_seed_is_explicit_deterministic_idempotent_and_labelled(tmp_path):
     assert original == dump_data(second)
     assert len(original["cases"]) == 500
     assert len(original["cbr_reference_cases"]) == 1000
-    assert all(row[-1] == "SYNTHETIC" for rows in original.values() for row in rows)
+    with sqlite3.connect(first) as conn:
+        for table in original:
+            assert conn.execute(f"SELECT COUNT(*) FROM {table} WHERE data_origin != 'SYNTHETIC'").fetchone()[0] == 0
     result = command(first, "seed-demo")
     assert result.returncode == 0, result.stderr
     assert dump_data(first) == original
@@ -104,6 +106,7 @@ def test_new_demo_interactions_keep_synthetic_provenance():
         case = client.get("/api/cases").json()[0]
         result = client.post(f"/api/cases/{case['case_id']}/call-wrapup", json={
             "guardrail_token": "", "outcome": "BUSY_NO_ANSWER",
+            "command_id": "provenance-test", "expected_version": case["case_version"],
         })
         assert result.status_code == 200
         assert all(row["data_origin"] == "SYNTHETIC" for row in client.get(f"/api/cases/{case['case_id']}/history").json())

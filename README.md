@@ -12,6 +12,11 @@ Xem [ADR-002](docs/adr/ADR-002-ews-collection-runtime-foundation.md) để biế
 phạm vi PR-01 và các gate trước khi mở rộng. ADR này làm rõ ranh giới theo quyết định
 nghiệp vụ, không chia cứng theo DPD trước/sau quá hạn.
 
+PR-02 bổ sung writer nghiệp vụ thống nhất, case nhiều exposure, payment ledger,
+PTP đối soát và optimistic versioning. Xem [ADR-003](docs/adr/ADR-003-case-payment-ptp-correctness.md)
+cho semantics, API, migration và giới hạn. Đây vẫn là POC demo/test; không mở ghi
+Core thật, EWS/policy handoff/outcome bus vẫn thuộc các bước tiếp theo.
+
 ## Cài đặt từ checkout mới
 
 Yêu cầu Python **3.12**, Node.js **22** và npm. Chạy tại repo root:

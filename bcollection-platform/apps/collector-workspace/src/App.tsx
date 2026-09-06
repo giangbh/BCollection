@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HeaderSoftphone } from './components/HeaderSoftphone';
 import { CaseQueueTable } from './components/CaseQueueTable';
 import { PersonaCardView } from './components/PersonaCardView';
@@ -17,6 +17,7 @@ export const App: React.FC = () => {
   const [callState, setCallState] = useState<'IDLE' | 'CALLING' | 'CONNECTED' | 'ENDED'>('IDLE');
   const [callDuration, setCallDuration] = useState(0);
   const [guardrailToken, setGuardrailToken] = useState<string | null>(null);
+  const wrapupRequest = useRef<{ content: string; id: string } | null>(null);
 
   // Modals
   const [isWrapupOpen, setIsWrapupOpen] = useState(false);
@@ -48,6 +49,7 @@ export const App: React.FC = () => {
   }, [callState]);
 
   const handleSelectCase = (caseItem: any) => {
+    if (callState !== 'IDLE') return;
     setSelectedCase(caseItem);
     setLoadingPersona(true);
 
@@ -73,6 +75,7 @@ export const App: React.FC = () => {
   const handleStartCall = () => {
     if (!selectedCase) return;
     setCallState('CALLING');
+    wrapupRequest.current = null;
 
     // Gọi API evaluate intent qua L6 Guardrail
     fetch(`/api/cases/${selectedCase.case_id}/call-intent`, {
@@ -86,7 +89,7 @@ export const App: React.FC = () => {
           setGuardrailToken(data.guardrail_token);
           setTimeout(() => setCallState('CONNECTED'), 1200); // Giả lập nối máy
         } else {
-          alert(`🚫 GUARDRAIL CHẶN CUỘC GỌI:\n${data.blocking_reason}`);
+          alert(`🚫 KHÔNG THỂ GỌI:\n${data.blocking_reason || data.detail || 'Thiếu xác nhận trạng thái case/Core'}`);
           setCallState('IDLE');
         }
       })
@@ -103,31 +106,42 @@ export const App: React.FC = () => {
 
   const handleSubmitWrapup = (outcome: string, ptpAmount?: number, ptpDate?: string, notes?: string) => {
     if (!selectedCase) return;
+    const content = JSON.stringify({ case_id: selectedCase.case_id, outcome, ptpAmount, ptpDate, notes });
+    if (!wrapupRequest.current || wrapupRequest.current.content !== content) {
+      wrapupRequest.current = { content, id: crypto.randomUUID() };
+    }
 
     fetch(`/api/cases/${selectedCase.case_id}/call-wrapup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         guardrail_token: guardrailToken || '',
+        command_id: wrapupRequest.current.id,
+        expected_version: selectedCase.case_version,
         outcome,
         ptp_amount: ptpAmount,
         ptp_date: ptpDate,
         notes
       })
     })
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+        return data;
+      })
       .then(() => {
         setIsWrapupOpen(false);
         setCallState('IDLE');
         // Refresh cases
         fetch('/api/cases')
           .then((res) => res.json())
-          .then((data) => setCases(data));
+          .then((data) => { setCases(data); setSelectedCase(data.find((c: any) => c.case_id === selectedCase.case_id) || null); });
         // Refresh case history
         fetch(`/api/cases/${selectedCase.case_id}/history`)
           .then((res) => res.json())
           .then((histData) => setCaseHistory(histData));
-      });
+      })
+      .catch((err) => alert('Chưa lưu wrapup: ' + err.message + '. Nếu case đã thay đổi, tải lại dữ liệu trước khi xử lý tiếp.'));
   };
 
   const handleSubmitFact = (factType: string, payload: any) => {

@@ -38,7 +38,9 @@ def test_core_banking_adapter_delegates_to_client():
     # Giả lập trả nợ
     mock_client.simulate_incoming_payment("LOAN-TEST-HEX", "CIF999", 5000000.0)
     new_snapshot = adapter.get_realtime_balance("LOAN-TEST-HEX")
-    assert new_snapshot.is_fully_paid
+    assert not new_snapshot.is_fully_paid  # Cleared arrears, not the entire loan.
+    assert new_snapshot.overdue_amount == 0
+    assert new_snapshot.outstanding_principal == 100000000
     assert new_snapshot.overdue_amount == 0.0
 
     # Kiểm tra sự kiện thanh toán

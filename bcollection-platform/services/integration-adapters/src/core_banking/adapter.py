@@ -2,6 +2,7 @@ import os
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from datetime import datetime
+from bc_domain.case_rules import instant, vnd
 from .client import CoreBankingApiClient
 from .mock_client import MockCoreBankingApiClient
 from .http_client import HttpCoreBankingApiClient
@@ -16,6 +17,7 @@ class LoanBalanceSnapshot:
     days_past_due: int
     is_fully_paid: bool
     as_of: datetime
+    source_version: int = 0
 
 
 @dataclass
@@ -72,25 +74,26 @@ class CoreBankingAdapter:
         raw_res = self._client.fetch_loan_balance(loan_id)
         data = raw_res.get("data", raw_res)
         
-        as_of_val = data.get("as_of")
-        if isinstance(as_of_val, str):
-            try:
-                as_of_dt = datetime.fromisoformat(as_of_val)
-            except Exception:
-                as_of_dt = datetime.now()
-        else:
-            as_of_dt = datetime.now()
-
-        overdue = float(data.get("overdue_amount", 0.0))
+        as_of_dt = instant(data["as_of"])
+        if data["loan_id"] != loan_id or not data["debtor_cif"]:
+            raise ValueError("Core identity mismatch")
+        overdue = vnd(data["overdue_amount"])
+        principal, interest = vnd(data["outstanding_principal"]), vnd(data["outstanding_interest"])
+        if type(data["dpd"]) is not int or data["dpd"] < 0:
+            raise ValueError("Invalid Core DPD")
+        version = data["source_version"]
+        if type(version) is not int or version < 0:
+            raise ValueError("Invalid Core source_version")
         return LoanBalanceSnapshot(
             loan_id=data.get("loan_id", loan_id),
             debtor_cif=data.get("debtor_cif", "CIF_UNKNOWN"),
-            outstanding_principal=float(data.get("outstanding_principal", 0.0)),
-            outstanding_interest=float(data.get("outstanding_interest", 0.0)),
+            outstanding_principal=principal,
+            outstanding_interest=interest,
             overdue_amount=overdue,
             days_past_due=int(data.get("dpd", 0)),
-            is_fully_paid=(overdue <= 0),
-            as_of=as_of_dt
+            is_fully_paid=(principal == 0 and interest == 0 and overdue == 0),
+            as_of=as_of_dt,
+            source_version=version,
         )
 
     def check_recent_payment(self, loan_id: str, lookback_minutes: int = 15) -> Optional[PaymentEvent]:
@@ -101,12 +104,10 @@ class CoreBankingAdapter:
         if not raw_payments:
             return None
         
-        latest = raw_payments[-1]
-        paid_at_str = latest.get("paid_at")
-        try:
-            paid_at_dt = datetime.fromisoformat(paid_at_str) if paid_at_str else datetime.now()
-        except Exception:
-            paid_at_dt = datetime.now()
+        latest = max(raw_payments, key=lambda p: instant(p["paid_at"]))
+        paid_at_dt = instant(latest["paid_at"])
+        if latest["loan_id"] != loan_id or not latest["debtor_cif"] or not vnd(latest["amount_paid"]):
+            raise ValueError("Invalid Core payment identity/amount")
 
         return PaymentEvent(
             event_id=latest.get("event_id", "PAY-UNKNOWN"),

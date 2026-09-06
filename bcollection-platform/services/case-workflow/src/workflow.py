@@ -36,23 +36,4 @@ class CaseWorkflowStateMachine:
 
     @classmethod
     def transition(cls, case: CollectionCase, new_status: CaseStatus, context: Optional[Dict[str, Any]] = None) -> CollectionCase:
-        if not cls.can_transition(case.status, new_status):
-            raise ValueError(f"Không thể chuyển trạng thái từ {case.status} sang {new_status}")
-
-        case.status = new_status
-        case.last_interaction_at = datetime.now()
-
-        if new_status == CaseStatus.PTP_SCHEDULED and context:
-            case.ptp_amount = context.get("ptp_amount")
-            case.ptp_date = context.get("ptp_date")
-
-        elif new_status == CaseStatus.RESOLVED_CURED:
-            case.cure_flag = True
-            case.closed_at = datetime.now()
-            if context and "recovery_amount" in context:
-                case.recovery_amount = context["recovery_amount"]
-
-        elif new_status == CaseStatus.CLOSED:
-            case.closed_at = datetime.now()
-
-        return case
+        raise ValueError("Direct workflow mutation retired in PR-02; use CaseService.execute with versioned financial evidence")

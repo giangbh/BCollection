@@ -13,13 +13,26 @@ DB_FILE_PATH = str(RuntimeSettings.from_env().database_path)
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_FILE_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
 
 def init_db():
-    """Khởi tạo cấu trúc các bảng trong cơ sở dữ liệu SQLite"""
+    """Apply the additive schema migration atomically, without seeding."""
     Path(DB_FILE_PATH).parent.mkdir(parents=True, exist_ok=True)
     conn = get_connection()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        _init_schema(conn)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _init_schema(conn):
     cursor = conn.cursor()
 
     # 1. Bảng Cases (Quản lý 500 hồ sơ nợ B1)
@@ -106,9 +119,8 @@ def init_db():
         if "data_origin" not in columns:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN data_origin TEXT NOT NULL DEFAULT 'UNKNOWN'")
     cursor.execute("CREATE TABLE IF NOT EXISTS runtime_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-
-    conn.commit()
-    conn.close()
+    from case_schema import migrate
+    migrate(conn)
 
 
 def claim_runtime_database(mode: str):
@@ -216,6 +228,9 @@ def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo,
     # Nạp 1000 hồ sơ CBR Reference Case vào SQLite (Vector 192 chiều thực tế)
     from cbr_engine import seed_1000_cbr_cases_if_needed
     seed_1000_cbr_cases_if_needed(conn, seed=reference_seed, as_of=seed_time)
+    from case_schema import backfill
+    backfill(conn)
+    conn.commit()
 
     conn.close()
 
@@ -238,64 +253,19 @@ def get_case_by_id(case_id: str) -> Optional[Dict[str, Any]]:
     return dict(row) if row else None
 
 
-def update_case_wrapup(case_id: str, outcome: str, ptp_amount: Optional[float], ptp_date: Optional[str], notes: Optional[str], guardrail_token: str) -> Dict[str, Any]:
-    conn = get_connection()
-    cursor = conn.cursor()
-    now_str = datetime.now().isoformat()
-    now_display = datetime.now().strftime("%d/%m/%Y %H:%M")
-    origin = cursor.execute("SELECT data_origin FROM cases WHERE case_id = ?", (case_id,)).fetchone()
-    data_origin = origin[0] if origin else "UNKNOWN"
-
-    # Xác định status mới
-    new_status = "PTP_SCHEDULED" if outcome == "PTP_AGREED" else "IN_TREATMENT"
-
-    cursor.execute("""
-    UPDATE cases 
-    SET status = ?, ptp_amount = ?, ptp_date = ?, updated_at = ?
-    WHERE case_id = ?;
-    """, (new_status, ptp_amount, ptp_date, now_str, case_id))
-
-    # Ghi vào bảng case_interactions
-    outcome_label = (
-        "Hẹn ngày trả (PTP Agreed)" if outcome == "PTP_AGREED"
-        else ("Từ chối thanh toán" if outcome == "REFUSED" else "Không nghe máy")
-    )
-    sentiment = (
-        "TÍCH CỰC" if outcome == "PTP_AGREED"
-        else ("TIÊU CỰC" if outcome == "REFUSED" else "TRUNG TÍNH")
-    )
-    interaction_id = f"INT-{case_id}-{int(datetime.now().timestamp())}"
-
-    cursor.execute("""
-    INSERT INTO case_interactions (
-        interaction_id, case_id, channel, collector_name, timestamp,
-        outcome, outcome_label, ptp_amount, ptp_date, notes, sentiment, guardrail_token, created_at, data_origin
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        interaction_id, case_id, "VOICE", "Lê Văn Chuyên (CB-8842)", now_display,
-        outcome, outcome_label, ptp_amount, ptp_date,
-        notes or "Hoàn tất cuộc gọi đàm phán nhắc nợ qua Softphone.",
-        sentiment, (guardrail_token[:22] + "...") if guardrail_token else "N/A",
-        now_str, data_origin
-    ))
-
-    conn.commit()
-    conn.close()
-    return {
-        "status": "SAVED",
-        "case_id": case_id,
-        "new_case_status": new_status,
-        "interaction_id": interaction_id
-    }
-
-
+def update_case_wrapup(case_id: str, outcome: str, ptp_amount, ptp_date, notes, guardrail_token: str, *, command_id: str, expected_version: int):
+    """Compatibility entry point; all mutations use the application service."""
+    from case_service import CaseService
+    return CaseService().execute(case_id, command_id, expected_version, "wrapup", {
+        "outcome": outcome, "ptp_amount": ptp_amount, "ptp_date": ptp_date,
+        "notes": notes, "guardrail_token": guardrail_token,
+    })
 def get_case_history(case_id: str) -> List[Dict[str, Any]]:
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM case_interactions WHERE case_id = ? ORDER BY created_at DESC;", (case_id,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    try:
+        return [dict(row) for row in conn.execute("SELECT * FROM case_interactions WHERE case_id=? ORDER BY created_at DESC", (case_id,))]
+    finally:
+        conn.close()
 
 
 def get_db_schema_info() -> Dict[str, Any]:
@@ -325,65 +295,24 @@ def get_db_schema_info() -> Dict[str, Any]:
 
 
 def get_debtor_behavioral_metrics(debtor_cif: str, case_id: str) -> Dict[str, Any]:
-    """
-    Truy vấn và tính toán các đặc trưng hành vi thực tế của khách nợ từ SQLite:
-    - historical_on_time_ratio: Tỷ lệ tương tác tích cực và giữ lời hứa
-    - prior_cure_count: Số lần từng có khoản nợ tự khỏi hoặc trả thành công
-    - digital_interactions_count: Tần suất tương tác trên kênh số (SMS, Zalo, App)
-    - ptp_stats: Số lần hẹn PTP và số lần thực hiện
-    """
+    """Financial outcomes come only from structured evidence, never sentiment."""
     conn = get_connection()
-    cursor = conn.cursor()
-
-    # 1. Truy vấn các tương tác liên quan đến CIF hoặc case_id
-    cursor.execute("""
-    SELECT ci.* FROM case_interactions ci
-    JOIN cases c ON ci.case_id = c.case_id
-    WHERE c.debtor_cif = ? OR ci.case_id = ?
-    ORDER BY ci.created_at DESC;
-    """, (debtor_cif, case_id))
-    interactions = [dict(r) for r in cursor.fetchall()]
-
-    # 2. Truy vấn danh sách các khoản nợ của debtor
-    cursor.execute("SELECT * FROM cases WHERE debtor_cif = ?;", (debtor_cif,))
-    cases = [dict(r) for r in cursor.fetchall()]
-    conn.close()
-
-    total_interactions = len(interactions)
-    positive_count = sum(1 for i in interactions if i.get("sentiment") == "TÍCH CỰC" or i.get("outcome") in ("PTP_AGREED", "CURED", "SMS_SENT"))
-    cured_cases_count = sum(1 for c in cases if c.get("status") == "CURED")
-    digital_count = sum(1 for i in interactions if i.get("channel") in ("SMS", "ZALO", "DIGITAL", "APP"))
-    ptp_agreed_count = sum(1 for i in interactions if i.get("outcome") == "PTP_AGREED")
-
-    cif_hash = sum(ord(ch) for ch in debtor_cif)
-
-    # Tính tỷ lệ trả đúng hạn lịch sử
-    if total_interactions > 0:
-        base_ratio = round(positive_count / max(1, total_interactions), 2)
-        on_time_ratio = min(0.98, max(0.40, base_ratio))
-    else:
-        # Dự phóng theo hàm hash xác định nếu là hồ sơ mới
-        on_time_ratio = 0.85 + (cif_hash % 11) * 0.01
-
-    # Số lần tự khỏi trước đó
-    prior_cures = cured_cases_count
-    if prior_cures == 0 and total_interactions > 0:
-        # Nếu có tương tác tích cực trong quá khứ
-        prior_cures = min(3, positive_count // 2)
-    elif prior_cures == 0:
-        prior_cures = (cif_hash % 3)
-
-    # Ước tính số lượt đăng nhập ứng dụng Mobile Banking
-    app_logins = digital_count * 2 + ((cif_hash % 12) + 2)
-
-    return {
-        "debtor_cif": debtor_cif,
-        "case_id": case_id,
-        "total_interactions": total_interactions,
-        "historical_on_time_ratio": on_time_ratio,
-        "prior_cure_count": prior_cures,
-        "digital_interactions_count": digital_count,
-        "app_logins": app_logins,
-        "ptp_agreed_count": ptp_agreed_count,
-        "has_real_interactions": total_interactions > 0
-    }
+    try:
+        interactions = conn.execute("SELECT ci.* FROM case_interactions ci JOIN cases c ON c.case_id=ci.case_id WHERE c.debtor_cif=?", (debtor_cif,)).fetchall()
+        ptps = conn.execute("SELECT p.* FROM ptps p JOIN cases c ON c.case_id=p.case_id WHERE c.debtor_cif=?", (debtor_cif,)).fetchall()
+        mature = [p for p in ptps if p["status"] in {"KEPT", "BROKEN"}]
+        kept = sum(p["status"] == "KEPT" for p in mature)
+        return {
+            "debtor_cif": debtor_cif, "case_id": case_id,
+            "total_interactions": len(interactions),
+            "historical_on_time_ratio": None, "prior_cure_count": 0,
+            "digital_interactions_count": sum(i["channel"] in {"SMS", "ZALO", "DIGITAL", "APP"} for i in interactions),
+            "app_logins": None,
+            "ptp_agreed_count": sum(p["status"] != "UNVERIFIED" for p in ptps),
+            "ptp_kept_rate": kept / len(mature) if mature else None,
+            "ptp_mature_count": len(mature), "ptp_kept_count": kept,
+            "missing_features": ["installment_payment_history", "verified_self_cure_history", "app_login_telemetry"],
+            "has_real_interactions": any(i["data_origin"] == "VERIFIED" for i in interactions),
+        }
+    finally:
+        conn.close()

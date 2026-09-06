@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
-from .enums import CaseStatus, ExperimentArm, ChannelType
+from .enums import CaseStatus, ExperimentArm, ChannelType, CaseStage, CaseLifecycle
 
 
 class CollectionCase(BaseModel):
@@ -26,6 +26,11 @@ class CollectionCase(BaseModel):
     cure_flag: bool = False
     recovery_amount: float = 0.0
     cost_to_collect: float = 0.0
+    case_version: int = 0
+    stage: CaseStage = CaseStage.EARLY_COLLECTION
+    lifecycle: CaseLifecycle = CaseLifecycle.OPEN
+    resolution: Optional[str] = None
+    exposure_ids: List[str] = Field(default_factory=list)
 
 
 class ScoreComponent(BaseModel):
