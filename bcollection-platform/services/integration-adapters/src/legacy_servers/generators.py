@@ -450,3 +450,89 @@ def generate_messaging_result(channel: str, phone: str, brandname: str = "BANK")
         "telco_carrier": ["VIETTEL", "VINAPHONE", "MOBIFONE"][h % 3],
         "sent_at": datetime.now(timezone.utc).isoformat()
     }
+
+
+# ---------------------------------------------------------------------------
+# 7. EARLY WARNING SYSTEM (EWS) GENERATOR
+# ---------------------------------------------------------------------------
+
+def generate_ews_signals(case_id: str, dpd: int = 0) -> Dict[str, Any]:
+    h = id_hash(case_id)
+    signals = []
+    cif = f"CIF{100000 + (h % 900000)}"
+    now_iso = datetime.now(timezone.utc).isoformat()
+    
+    # Tín hiệu 1: Dòng tiền CASA
+    if (h % 2) == 0:
+        signals.append({
+            "signal_id": f"EWS-CASA-{h % 1000:03d}",
+            "debtor_cif": cif,
+            "severity": "HIGH" if dpd > 15 else "MEDIUM",
+            "category": "CASHFLOW_DEPLETION",
+            "title": "Biến động số dư CASA sụt giảm nghiêm trọng",
+            "description": f"Số dư bình quân tài khoản thanh toán CASA giảm {(35 + (h % 30))}% so với 3 tháng liền kề.",
+            "source": "CORE_BANKING",
+            "verification": "VERIFIED",
+            "occurred_at": now_iso,
+            "data_origin": "EWS_INTELLIGENCE",
+            "detected_at": now_iso
+        })
+
+    # Tín hiệu 2: Chậm kỳ lương
+    if (h % 3) == 0:
+        signals.append({
+            "signal_id": f"EWS-PAYROLL-{h % 1000:03d}",
+            "debtor_cif": cif,
+            "severity": "MEDIUM",
+            "category": "PAYROLL_ANOMALY",
+            "title": "Lệch chu kỳ dòng tiền lương định kỳ",
+            "description": f"Dòng tiền lương tháng gần nhất bị trễ {(3 + (h % 7))} ngày so với ngày nhận định kỳ.",
+            "source": "PAYROLL_SYSTEM",
+            "verification": "VERIFIED",
+            "occurred_at": now_iso,
+            "data_origin": "EWS_INTELLIGENCE",
+            "detected_at": now_iso
+        })
+
+    # Tín hiệu 3: Quan hệ tín dụng liên ngân hàng
+    if (h % 4) == 0 or dpd > 10:
+        signals.append({
+            "signal_id": f"EWS-CIC-{h % 1000:03d}",
+            "debtor_cif": cif,
+            "severity": "HIGH",
+            "category": "CROSS_DEFAULT_RISK",
+            "title": "Phát sinh nợ nhóm 2 tại Tổ chức tín dụng khác",
+            "description": "CIC ghi nhận phát sinh quá hạn từ 10 - 30 ngày tại ngân hàng TMCP đối thủ.",
+            "source": "CIC_GATEWAY",
+            "verification": "VERIFIED",
+            "occurred_at": now_iso,
+            "data_origin": "EWS_INTELLIGENCE",
+            "detected_at": now_iso
+        })
+
+    if not signals:
+        signals.append({
+            "signal_id": f"EWS-MONITOR-{h % 1000:03d}",
+            "debtor_cif": cif,
+            "severity": "LOW",
+            "category": "ROUTINE_CHECK",
+            "title": "Giám sát định kỳ chỉ số thanh toán",
+            "description": "Chỉ số hành vi và lịch sử thanh toán ổn định trong ngưỡng an toàn.",
+            "source": "BEHAVIOR_SCORING",
+            "verification": "VERIFIED",
+            "occurred_at": now_iso,
+            "data_origin": "EWS_INTELLIGENCE",
+            "detected_at": now_iso
+        })
+
+    status = "HIGH_RISK" if any(s["severity"] == "HIGH" for s in signals) else ("MONITOR" if signals else "NORMAL")
+
+    return {
+        "case_id": case_id,
+        "status": status,
+        "signals_count": len(signals),
+        "signals": signals,
+        "recommended_treatment": "ACCELERATE_CONTACT" if status == "HIGH_RISK" else "STANDARD_FOLLOWUP",
+        "evaluated_at": now_iso
+    }
+

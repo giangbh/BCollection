@@ -25,3 +25,8 @@ class CoreBankingApiClient(ABC):
     def fetch_customer_inflows(self, debtor_cif: str, months: int = 3) -> Dict[str, Any]:
         """Gọi API tra cứu dòng tiền tài khoản thanh toán và CASA của CIF"""
         pass
+
+    @abstractmethod
+    def fetch_ews_signals(self, case_id: str, dpd: int = 10) -> Dict[str, Any]:
+        """Gọi API tra cứu tín hiệu cảnh báo rủi ro sớm (EWS)"""
+        pass

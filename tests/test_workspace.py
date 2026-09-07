@@ -150,3 +150,35 @@ def test_customer_endpoint_does_not_claim_complete_core_portfolio(service):
         assert response.json()['coverage'] == 'RECORDED_IN_BCOLLECTION_ONLY'
         assert response.json()['complete_core_portfolio'] is False
         assert client.get('/api/customers/absent/exposures').status_code == 404
+
+
+def test_workspace_api_concurrent_live_enrichment_and_graceful_degradation(service):
+    with TestClient(app) as client:
+        # Case bình thường: Auto live-enrichment thành công
+        res = client.get('/api/cases/C1/workspace')
+        assert res.status_code == 200
+        data = res.json()
+        assert "ews" in data
+        assert "signals" in data["ews"]
+        assert len(data["ews"]["signals"]) >= 1
+
+        # Giả lập backend lỗi: Mock Adapter ném ConnectionError / TimeoutError
+        import main
+        orig_adapter = main.core_banking_adapter
+        class BrokenCoreAdapter:
+            def get_realtime_balance(self, loan_id):
+                raise ConnectionError("Core Banking ESB timeout")
+            def get_ews_signals(self, case_id, dpd):
+                raise TimeoutError("EWS service timeout")
+
+        main.core_banking_adapter = BrokenCoreAdapter()
+        try:
+            # Ngay cả khi Core & EWS bị lỗi, API get_workspace vẫn trả về 200 OK (Graceful Degradation)
+            res_degraded = client.get('/api/cases/C1/workspace')
+            assert res_degraded.status_code == 200
+            data_degraded = res_degraded.json()
+            assert data_degraded["case"]["case_id"] == "C1"
+            assert "contact_schedules" in data_degraded
+        finally:
+            main.core_banking_adapter = orig_adapter
+

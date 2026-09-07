@@ -35,6 +35,14 @@ from cti.adapter import CTITelephonyAdapter
 from speech_ai.adapter import SpeechAIAdapter
 from balance_check_service import RealTimeBalanceCheckService
 
+core_banking_adapter = None
+los_adapter = None
+cic_adapter = None
+cti_adapter = None
+speech_ai_adapter = None
+balance_checker = None
+persona_engine = None
+
 @asynccontextmanager
 async def lifespan(app):
     global obl_repo, cnt_repo, aud_repo, orchestrator
@@ -327,9 +335,125 @@ def get_case_history_api(case_id: str):
 def get_workspace(case_id: str):
     from workspace import read_workspace
     try:
-        return read_workspace(case_id)
+        result = read_workspace(case_id)
     except CaseNotFound:
         raise HTTPException(404, 'Case not found')
+
+    global core_banking_adapter, los_adapter, cic_adapter
+    if core_banking_adapter is None:
+        core_banking_adapter = CoreBankingAdapter()
+    if los_adapter is None:
+        los_adapter = LOSAdapter()
+    if cic_adapter is None:
+        cic_adapter = CICAdapter()
+
+    case = result.get('case') or {}
+    loan_id = case.get('loan_id')
+    debtor_cif = case.get('debtor_cif')
+    dpd = int(case.get('dpd') or 0)
+    national_id = case.get('national_id', '')
+
+    # Concurrent Fan-out làm giàu dữ liệu từ Core Banking, LOS, CIC, EWS
+    # Cơ chế Resilience: Bọc try-except với Short Timeout (2.0s), Fallback an toàn về snapshot
+    import concurrent.futures
+    import contextvars
+    from dataclasses import asdict
+
+    ctx = contextvars.copy_context()
+
+    def fetch_core():
+        if not loan_id:
+            return None
+        try:
+            bal = core_banking_adapter.get_realtime_balance(loan_id)
+            return {
+                "loan_id": bal.loan_id,
+                "debtor_cif": bal.debtor_cif,
+                "outstanding_principal": bal.outstanding_principal,
+                "outstanding_interest": bal.outstanding_interest,
+                "overdue_amount": bal.overdue_amount,
+                "days_past_due": bal.days_past_due,
+                "is_fully_paid": bal.is_fully_paid,
+                "as_of": bal.as_of.isoformat() if hasattr(bal.as_of, 'isoformat') else str(bal.as_of),
+                "source_version": bal.source_version
+            }
+        except Exception as e:
+            return {"status": "DEGRADED", "error": str(e)}
+
+    def fetch_los():
+        if not loan_id:
+            return None
+        try:
+            parties = los_adapter.get_loan_party_obligations(loan_id)
+            collat = los_adapter.get_loan_collateral(loan_id)
+            return {
+                "parties": [asdict(p) for p in parties],
+                "collaterals": [asdict(c) for c in collat]
+            }
+        except Exception as e:
+            return {"status": "DEGRADED", "error": str(e), "parties": [], "collaterals": []}
+
+    def fetch_cic():
+        if not debtor_cif:
+            return None
+        try:
+            rep = cic_adapter.get_credit_report(debtor_cif, national_id)
+            return asdict(rep)
+        except Exception as e:
+            return {"status": "DEGRADED", "error": str(e)}
+
+    def fetch_ews():
+        try:
+            return core_banking_adapter.get_ews_signals(case_id, dpd)
+        except Exception as e:
+            return {"status": "DEGRADED", "error": str(e), "signals": []}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        f_core = executor.submit(contextvars.copy_context().run, fetch_core)
+        f_los = executor.submit(contextvars.copy_context().run, fetch_los)
+        f_cic = executor.submit(contextvars.copy_context().run, fetch_cic)
+        f_ews = executor.submit(contextvars.copy_context().run, fetch_ews)
+
+        done, not_done = concurrent.futures.wait([f_core, f_los, f_cic, f_ews], timeout=2.0)
+
+        for f in not_done:
+            f.cancel()
+
+        try:
+            core_res = f_core.result(timeout=0) if f_core in done else None
+            if core_res and core_res.get("status") != "DEGRADED":
+                result["live_balance"] = core_res
+                if core_res.get("is_fully_paid"):
+                    result["case"]["overdue_amount"] = 0.0
+                    result["case"]["dpd"] = 0
+                    result["case"]["loan_status"] = "PAID_OFF"
+        except Exception:
+            pass
+
+        try:
+            los_res = f_los.result(timeout=0) if f_los in done else None
+            if los_res and los_res.get("status") != "DEGRADED":
+                result["los_parties"] = los_res.get("parties", [])
+                result["collaterals"] = los_res.get("collaterals", [])
+        except Exception:
+            pass
+
+        try:
+            cic_res = f_cic.result(timeout=0) if f_cic in done else None
+            if cic_res and cic_res.get("status") != "DEGRADED":
+                result["cic_report"] = cic_res
+        except Exception:
+            pass
+
+        try:
+            ews_res = f_ews.result(timeout=0) if f_ews in done else None
+            if ews_res and ews_res.get("status") != "DEGRADED" and ews_res.get("signals"):
+                result["ews"] = ews_res
+        except Exception:
+            pass
+
+    return result
+
 
 
 @app.get('/api/customers/{cif}/exposures')

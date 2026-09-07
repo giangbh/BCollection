@@ -143,3 +143,9 @@ class CoreBankingAdapter:
             inferred_pay_day_of_month=data.get("inferred_pay_day_of_month"),
             payroll_bank_name=str(data.get("payroll_bank_name", "BIDV"))
         )
+
+    def get_ews_signals(self, case_id: str, dpd: int = 10) -> Dict[str, Any]:
+        """
+        Lấy tín hiệu cảnh báo sớm (Early Warning System - EWS) cho khoản vay/case.
+        """
+        return self._client.fetch_ews_signals(case_id, dpd)

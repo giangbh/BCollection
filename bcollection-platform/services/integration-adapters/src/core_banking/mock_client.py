@@ -208,3 +208,17 @@ class MockCoreBankingApiClient(CoreBankingApiClient):
                 "payroll_bank_name": bank_name
             }
         }
+
+    def fetch_ews_signals(self, case_id: str, dpd: int = 10) -> Dict[str, Any]:
+        try:
+            from legacy_servers.generators import generate_ews_signals
+            return generate_ews_signals(case_id, dpd)
+        except Exception:
+            return {
+                "case_id": case_id,
+                "status": "NORMAL",
+                "signals_count": 0,
+                "signals": [],
+                "recommended_treatment": "STANDARD_FOLLOWUP"
+            }
+

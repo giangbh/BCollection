@@ -14,7 +14,7 @@ from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from .generators import generate_core_loan_balance, generate_core_cashflow, get_db_connection
+from .generators import generate_core_loan_balance, generate_core_cashflow, generate_ews_signals, get_db_connection
 
 app = FastAPI(
     title="Core Banking ESB Service (Mock)",
@@ -115,6 +115,11 @@ def get_delinquent_portfolio(max_dpd: int = 30):
         finally:
             conn.close()
     return {"loans": loans, "total": len(loans)}
+
+
+@app.get("/api/core/v1/ews/cases/{case_id}/signals")
+def get_ews_signals(case_id: str, dpd: int = Query(10)):
+    return generate_ews_signals(case_id, dpd)
 
 
 def run():

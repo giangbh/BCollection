@@ -84,3 +84,6 @@ class HttpCoreBankingApiClient(CoreBankingApiClient):
 
     def fetch_customer_inflows(self, debtor_cif: str, months: int = 3) -> Dict[str, Any]:
         return self._make_request(f"customers/{debtor_cif}/cashflows?months={months}")
+
+    def fetch_ews_signals(self, case_id: str, dpd: int = 10) -> Dict[str, Any]:
+        return self._make_request(f"ews/cases/{case_id}/signals?dpd={dpd}")
