@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -272,8 +272,12 @@ class CommandRequest(BaseModel):
 
 def run_command(case_id, payload, kind, data=None):
     try:
+        command_data = data if data is not None else payload.model_dump(exclude={"command_id", "expected_version"})
+        # Preserve pre-360 receipt hashes when the newly optional link is absent.
+        if kind == 'wrapup' and command_data.get('decision_feedback_id') is None:
+            command_data.pop('decision_feedback_id', None)
         return CaseService().execute(case_id, payload.command_id, payload.expected_version, kind,
-            data if data is not None else payload.model_dump(exclude={"command_id", "expected_version"}))
+            command_data)
     except CaseNotFound:
         raise HTTPException(404, "Case not found")
     except CaseConflict as exc:
@@ -283,6 +287,7 @@ def run_command(case_id, payload, kind, data=None):
 
 
 class CallWrapupRequest(CommandRequest):
+    decision_feedback_id: Optional[str] = None
     guardrail_token: str
     outcome: str  # PTP_AGREED, REFUSED, BUSY_NO_ANSWER
     ptp_amount: Optional[float] = None
@@ -322,6 +327,14 @@ def get_customer_exposures(cif: str):
         return read_customer(cif)
     except CaseNotFound:
         raise HTTPException(404, 'Customer not found in B.Collection')
+
+
+@app.get('/api/customer-search')
+def customer_search(q: str = Query(min_length=2, max_length=100)):
+    if len(q.strip()) < 2:
+        raise HTTPException(422, 'At least two non-whitespace characters required')
+    from customer360 import search_customers
+    return search_customers(q)
 
 
 @app.get("/api/cases/{case_id}/financial-state")
@@ -369,7 +382,7 @@ class FinancialCommandRequest(CommandRequest):
 
 @app.post("/api/cases/{case_id}/commands/{kind}")
 def financial_command(case_id: str, kind: str, request: FinancialCommandRequest):
-    if kind not in {"balance", "payment", "observe_ptp", "link_exposure", "reconcile", "schedule_contact", "cancel_schedule", "decision_feedback"}:
+    if kind not in {"balance", "payment", "observe_ptp", "link_exposure", "reconcile", "schedule_contact", "cancel_schedule", "decision_feedback", "add_note"}:
         raise HTTPException(422, "Unsupported financial command")
     return run_command(case_id, request, kind, request.payload)
 

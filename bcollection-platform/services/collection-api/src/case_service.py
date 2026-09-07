@@ -53,7 +53,7 @@ class CaseService:
                 raise CaseConflict(f"Stale case_version; current={c['case_version']}")
             now = instant(self.clock())
             before = (c["lifecycle"], c["resolution"])
-            if kind in {"schedule_contact", "cancel_schedule", "decision_feedback"}:
+            if kind in {"schedule_contact", "cancel_schedule", "decision_feedback", "add_note"}:
                 from workspace import apply_command
                 record_id = apply_command(conn, c, kind, payload, now)
                 version = c['case_version'] + 1
@@ -176,8 +176,13 @@ class CaseService:
         conn.execute("""UPDATE case_exposures SET overdue_vnd=?,principal_vnd=?,interest_vnd=?,dpd=?,
             balance_verified=1,source_version=?,source_as_of=?,snapshot_hash=? WHERE case_id=? AND loan_id=?""",
             (*values, s["dpd"], version, at.isoformat(), fingerprint, c["case_id"], s["loan_id"]))
+        conn.execute("INSERT INTO exposure_observations VALUES(?,?,?,?,?,?,?,?)", (c['case_id'], s['loan_id'], c['debtor_cif'], version, at.isoformat(), s['dpd'], fingerprint, c['data_origin']))
 
     def _wrapup(self, conn, c, p, now):
+        feedback_id = p.get('decision_feedback_id')
+        if feedback_id and not conn.execute("SELECT 1 FROM decision_feedback WHERE feedback_id=? AND case_id=? AND decision IN ('ACCEPT','ADJUST')", (feedback_id, c['case_id'])).fetchone():
+            raise ValueError('Accepted or adjusted feedback in this case required')
+        ptp_id, interaction_id = None, str(uuid4())
         if c["lifecycle"] != "OPEN" or c["contact_hold_reason"]:
             raise CaseConflict("Case closed or held; late wrapup cannot reopen it")
         if p["outcome"] not in {"PTP_AGREED", "REFUSED", "BUSY_NO_ANSWER"}:
@@ -196,10 +201,13 @@ class CaseService:
                 raise ValueError("PTP loan is not linked to case")
             if conn.execute("SELECT 1 FROM ptps WHERE case_id=? AND loan_id=? AND status IN ('SCHEDULED','PARTIALLY_KEPT')", (c["case_id"], loan)).fetchone():
                 raise CaseConflict("An active promise already exists for this exposure")
-            conn.execute("INSERT INTO ptps(ptp_id,case_id,loan_id,amount_vnd,created_at,due_at,status,data_origin) VALUES(?,?,?,?,?,?,'SCHEDULED',?)", (str(uuid4()), c["case_id"], loan, amount, now.isoformat(), due.isoformat(), c["data_origin"]))
+            ptp_id = str(uuid4())
+            conn.execute("INSERT INTO ptps(ptp_id,case_id,loan_id,amount_vnd,created_at,due_at,status,data_origin) VALUES(?,?,?,?,?,?,'SCHEDULED',?)", (ptp_id, c["case_id"], loan, amount, now.isoformat(), due.isoformat(), c["data_origin"]))
         conn.execute("""INSERT INTO case_interactions(interaction_id,case_id,channel,collector_name,timestamp,outcome,outcome_label,
             ptp_amount,ptp_date,notes,sentiment,guardrail_token,created_at,data_origin) VALUES(?,?,'VOICE','Demo collector',?,?,?,?,?,?,'UNASSESSED',?,?,?)""",
-            (str(uuid4()), c["case_id"], now.isoformat(), p["outcome"], p["outcome"], amount, due.isoformat() if due else None, p.get("notes"), p.get("guardrail_token"), now.isoformat(), c["data_origin"]))
+            (interaction_id, c["case_id"], now.isoformat(), p["outcome"], p["outcome"], amount, due.isoformat() if due else None, p.get("notes"), p.get("guardrail_token"), now.isoformat(), c["data_origin"]))
+        if feedback_id:
+            conn.execute('INSERT INTO decision_action_links VALUES(?,?,?,?)', (interaction_id, feedback_id, ptp_id, c['case_id']))
 
     def _payment(self, conn, c, p, now):
         if not isinstance(p["event_id"], str) or not p["event_id"].strip() or len(p["event_id"]) > 128:

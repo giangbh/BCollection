@@ -24,6 +24,8 @@ def migrate_workspace(conn):
         decision TEXT NOT NULL CHECK(decision IN ('ACCEPT','ADJUST','DECLINE')),
         reason TEXT NOT NULL, case_version INTEGER NOT NULL, created_at TEXT NOT NULL,
         data_origin TEXT NOT NULL)""")
+    from customer360 import migrate
+    migrate(conn)
 
 
 def exposures(conn, cif=None, case_id=None):
@@ -112,6 +114,9 @@ def apply_command(conn, case, kind, payload, now):
             raise CaseConflict('Active schedule no longer exists')
         # Preserve cancellation reason separately from the original plan.
         record_id = schedule_id
+    elif kind == 'add_note':
+        # Integration POSTs are blocked. Do not accept a caller-supplied identity.
+        conn.execute("INSERT INTO case_notes VALUES(?,?,?,?,?,?,?)", (record_id, case['case_id'], case['debtor_cif'], reason.strip(), 'Demo collector (unauthenticated)', now.isoformat(), case['data_origin']))
     else:
         recommendation = next_action(conn, case, now)
         if payload.get('recommendation_id') != recommendation['recommendation_id'] or payload.get('recommendation_kind') != recommendation['kind']:
@@ -139,6 +144,8 @@ def read_workspace(case_id):
                   'next_action': next_action(conn, case, now), 'ews': {'status': 'NOT_CONNECTED', 'signals': []}}
         for table in ('ptps', 'payment_ledger', 'case_transition_log', 'contact_schedules', 'decision_feedback', 'case_interactions'):
             result[table] = [dict(r) for r in conn.execute(f'SELECT * FROM {table} WHERE case_id=?', (case_id,))]
+        from customer360 import read_context
+        result.update(read_context(conn, case, result['case_scope'], result['customer_scope'], now))
         return result
     finally:
         conn.close()
