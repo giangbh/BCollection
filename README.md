@@ -22,6 +22,11 @@ phạm vi case/CIF, PTP–payment và bằng chứng dữ liệu. Xem
 [hướng dẫn triển khai UI](docs/UI-Case-Workspace-Implementation.md) để chạy, kiểm thử,
 migration và các giới hạn còn lại.
 
+Phiên bản [Khách hàng 360 theo mock doanh nghiệp](docs/UI-Customer-360-Implementation.md)
+bổ sung chuyển case cùng khách hàng, dashboard, tìm kiếm không dấu, ghi chú lưu bền vững,
+lịch sử DPD từ snapshot Core và dấu vết quyết định–tương tác–PTP/payment. EWS/handoff có
+hợp đồng đọc bằng chứng; ingress realtime, risk model và outcome publisher chưa kết nối.
+
 ## Cài đặt từ checkout mới
 
 Yêu cầu Python **3.12**, Node.js **22** và npm. Chạy tại repo root:

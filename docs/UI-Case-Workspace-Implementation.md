@@ -1,5 +1,7 @@
 # Case Workspace — triển khai thiết kế tương tác
 
+Phiên bản kế tiếp theo mock doanh nghiệp: [Khách hàng 360](UI-Customer-360-Implementation.md).
+
 Nhánh: `codex/ui-case-workspace`, kế tiếp `codex/pr-02-case-payment-ptp`.
 Đây là ứng dụng React nối API POC, không nhúng HTML hoặc số liệu cố định từ prototype.
 
