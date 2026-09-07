@@ -84,6 +84,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+try:
+    from bc_telemetry import TelemetryMiddleware, global_tracer, global_metrics
+    app.add_middleware(TelemetryMiddleware, service_name="bcollection-core-api")
+except ImportError:
+    global_tracer = None
+    global_metrics = None
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -468,3 +475,58 @@ def transcribe_and_extract_call(case_id: str, payload: CallTranscribeRequest):
         "compliance_audit": res.compliance_audit,
         "auto_notes": res.auto_notes
     }
+
+
+# ===========================================================================
+# PHÂN HỆ OBSERVABILITY & DISTRIBUTED TELEMETRY (W3C & PROMETHEUS)
+# ===========================================================================
+
+from fastapi.responses import Response, HTMLResponse
+
+@app.get("/metrics", response_class=Response, tags=["Telemetry"])
+def prometheus_metrics():
+    """Endpoint xuất chỉ số hiệu năng theo chuẩn Prometheus Text Exposition Format (OpenMetrics)."""
+    if global_metrics:
+        return Response(content=global_metrics.render_prometheus_text(), media_type="text/plain; version=0.0.4")
+    return Response(content="# Metrics not available\n", media_type="text/plain")
+
+
+@app.get("/telemetry", response_class=HTMLResponse, tags=["Telemetry"])
+def telemetry_dashboard():
+    """Giao diện đồ họa trực quan Live Telemetry & Distributed Tracing Waterfall Dashboard."""
+    dashboard_file = os.path.join(os.path.dirname(__file__), "telemetry_dashboard.html")
+    if os.path.exists(dashboard_file):
+        with open(dashboard_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Dashboard HTML not found</h1>", status_code=404)
+
+
+@app.get("/api/telemetry/traces", tags=["Telemetry"])
+def get_recent_traces(limit: int = Query(50, ge=1, le=250)):
+    """Trả về danh sách các trace gần nhất kèm đầy đủ spans phân cấp (W3C Trace Context)."""
+    if global_tracer:
+        return global_tracer.get_recent_traces(limit=limit)
+    return []
+
+
+@app.get("/api/telemetry/traces/{trace_id}", tags=["Telemetry"])
+def get_trace_detail(trace_id: str):
+    """Chi tiết một trace cụ thể theo W3C Trace ID."""
+    if global_tracer:
+        trace = global_tracer.get_trace(trace_id)
+        if trace:
+            return trace
+    raise HTTPException(status_code=404, detail="Trace not found")
+
+
+@app.get("/api/telemetry/stats", tags=["Telemetry"])
+def get_telemetry_stats():
+    """Thống kê tổng hợp: Total requests, Avg latency, P95, Error rate và phân bổ dịch vụ."""
+    if global_metrics:
+        return global_metrics.get_aggregated_stats()
+    return {
+        "uptime_seconds": 0, "total_requests": 0, "total_errors": 0,
+        "error_rate_pct": 0.0, "latency_p50_ms": 0.0, "latency_p95_ms": 0.0,
+        "latency_avg_ms": 0.0, "service_breakdown": {}, "adapter_breakdown": {}
+    }
+

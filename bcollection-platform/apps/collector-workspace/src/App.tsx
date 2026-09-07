@@ -173,6 +173,17 @@ export function App() {
               <small>Chưa tích hợp SSO</small>
             </span>
           </span>
+          <a
+            href="http://localhost:8088/telemetry"
+            target="_blank"
+            rel="noreferrer"
+            className="bc-link"
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#38bdf8", fontWeight: 600, textDecoration: "none" }}
+            title="Mở bảng điều khiển Distributed Tracing & Telemetry (Waterfall Gantt)"
+          >
+            <Radar aria-hidden="true" style={{ width: "16px", height: "16px" }} />
+            Telemetry Traces
+          </a>
           <button
             className="bc-link"
             aria-label="Đổi giao diện sáng tối"

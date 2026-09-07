@@ -22,11 +22,21 @@ from .cti_server import app as cti_app
 from .speech_server import app as speech_app
 from .messaging_server import app as messaging_app
 
+try:
+    from bc_telemetry import global_tracer, global_metrics, format_traceparent, TelemetryMiddleware
+except ImportError:
+    global_tracer = None
+    global_metrics = None
+    TelemetryMiddleware = None
+
 app = FastAPI(
     title="Legacy Banking Unified API Gateway",
     description="API Gateway trung tâm (Port 8090) điều phối 6 Microservices ngân hàng (Core, LOS, CIC, CTI, Speech AI, Messaging)",
     version="1.0.0"
 )
+
+if TelemetryMiddleware:
+    app.add_middleware(TelemetryMiddleware, service_name="legacy-api-gateway")
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,6 +54,13 @@ SERVICES_PORT_MAP = {
     "speech-ai": ("http://127.0.0.1:8095", "/api/speech-ai/v1", speech_app),
     "messaging": ("http://127.0.0.1:8096", "/api/messaging/v1", messaging_app),
 }
+
+
+@app.get("/metrics")
+def get_metrics():
+    if global_metrics:
+        return Response(content=global_metrics.render_prometheus_text(), media_type="text/plain; version=0.0.4")
+    return Response(content="# Metrics not available", media_type="text/plain")
 
 
 @app.get("/health")
@@ -77,6 +94,17 @@ async def route_gateway(service: str, path: str, request: Request):
     headers.pop("host", None)
     headers["X-Forwarded-By"] = "BCOLLECTION_LEGACY_GATEWAY"
 
+    sub_span = None
+    if global_tracer:
+        sub_span = global_tracer.start_span(
+            name=f"gateway_forward_{service}",
+            service_name="legacy-api-gateway",
+            traceparent=request.headers.get("traceparent"),
+            attributes={"target.service": service, "target.url": target_url}
+        )
+        headers["traceparent"] = format_traceparent(sub_span.trace_id, sub_span.span_id)
+        headers["X-Trace-Id"] = sub_span.trace_id
+
     # Thử gọi tới microservice độc lập
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -87,6 +115,8 @@ async def route_gateway(service: str, path: str, request: Request):
                 content=body,
                 headers=headers
             )
+            if global_tracer and sub_span:
+                global_tracer.end_span(sub_span, status_code=resp.status_code)
             return Response(
                 content=resp.content,
                 status_code=resp.status_code,
@@ -105,6 +135,8 @@ async def route_gateway(service: str, path: str, request: Request):
                 content=body,
                 headers=headers
             )
+            if global_tracer and sub_span:
+                global_tracer.end_span(sub_span, status_code=resp.status_code)
             return Response(
                 content=resp.content,
                 status_code=resp.status_code,

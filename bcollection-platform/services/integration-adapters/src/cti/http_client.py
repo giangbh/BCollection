@@ -1,14 +1,22 @@
 import os
 import json
+import time
 import urllib.request
 import urllib.error
 from typing import Dict, Any, Optional
 from .client import CTIApiClient
 
+try:
+    from bc_telemetry import global_tracer, global_metrics, format_traceparent
+except ImportError:
+    global_tracer = None
+    global_metrics = None
+
 
 class HttpCTIApiClient(CTIApiClient):
     """
     Production Client gọi REST API tới hệ thống Tổng đài CTI (FreeSWITCH / Avaya API Gateway).
+    Tự động gắn W3C traceparent context và ghi nhận metrics thời gian thực.
     """
 
     def __init__(
@@ -28,14 +36,38 @@ class HttpCTIApiClient(CTIApiClient):
             "X-Client-Id": "BCOLLECTION_CTI",
             "Authorization": f"Bearer {self.api_key}" if self.api_key else ""
         }
+
+        span = None
+        if global_tracer:
+            span = global_tracer.start_span(
+                name=f"cti_http_{endpoint.split('?')[0]}",
+                service_name="cti-adapter",
+                attributes={"http.url": url, "http.method": method}
+            )
+            headers["traceparent"] = format_traceparent(span.trace_id, span.span_id)
+            headers["X-Trace-Id"] = span.trace_id
+
         data = json.dumps(payload).encode("utf-8") if payload else None
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        start = time.time()
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
+                dur = time.time() - start
                 if response.status in (200, 201):
+                    if global_metrics:
+                        global_metrics.record_adapter_call("cti_adapter", endpoint.split("/")[0], "SUCCESS", dur)
+                    if global_tracer and span:
+                        global_tracer.end_span(span, status_code=response.status)
                     return json.loads(response.read().decode("utf-8"))
+                if global_tracer and span:
+                    global_tracer.end_span(span, status_code=response.status)
                 raise RuntimeError(f"CTI Gateway Error HTTP {response.status}")
         except urllib.error.URLError as e:
+            dur = time.time() - start
+            if global_metrics:
+                global_metrics.record_adapter_call("cti_adapter", endpoint.split("/")[0], "ERROR", dur)
+            if global_tracer and span:
+                global_tracer.end_span(span, status_code=500)
             raise ConnectionError(f"Không thể kết nối tới CTI Gateway tại {url}: {str(e)}")
 
     def originate_call(

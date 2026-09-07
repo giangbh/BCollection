@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B.Collection Telemetry & Distributed Tracing Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0d14;
+      --bg-card: rgba(18, 24, 38, 0.75);
+      --bg-card-hover: rgba(28, 36, 56, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(59, 130, 246, 0.3);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-purple: #8b5cf6;
+      --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-main);
+      background: radial-gradient(circle at 10% 20%, #0d1527 0%, #0a0d14 90%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    /* Header & Navigation */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      color: #fff;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+    }
+    .brand-text h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
+    }
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-color);
+      color: var(--text-secondary);
+    }
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--accent-emerald);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* KPI Metrics Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+    .kpi-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+    }
+    .kpi-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: #fff;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .kpi-unit {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Service Status Bar */
+    .services-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 18px;
+      margin-bottom: 24px;
+      align-items: center;
+    }
+    .services-bar-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-right: 8px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+    }
+
+    /* Main Content Layout */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Trace Table */
+    .table-responsive {
+      overflow-x: auto;
+      max-height: 520px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      padding: 12px 18px;
+      background: rgba(10, 14, 24, 0.8);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--border-color);
+    }
+    td {
+      padding: 12px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+    tr:hover td {
+      background: var(--bg-card-hover);
+      color: #fff;
+      cursor: pointer;
+    }
+    .method-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    .method-GET { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .method-POST { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .method-PUT { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .method-DELETE { background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    .status-2xx { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .status-4xx { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .status-5xx { background: rgba(244, 63, 94, 0.15); color: #f43f5e; }
+
+    .trace-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+    }
+
+    /* Modal Waterfall Trace Detail */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-content {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 960px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+      animation: modalFade 0.2s ease-out;
+    }
+    @keyframes modalFade {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .modal-body {
+      padding: 24px;
+    }
+
+    /* Waterfall Gantt Chart */
+    .waterfall-container {
+      margin-top: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      padding: 16px;
+    }
+    .waterfall-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+    }
+    .waterfall-row {
+      display: grid;
+      grid-template-columns: 240px 1fr 90px;
+      gap: 16px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .span-info {
+      font-size: 12px;
+    }
+    .span-service {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 2px;
+      font-family: var(--font-mono);
+    }
+    .span-name {
+      color: #fff;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .timeline-track {
+      position: relative;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .timeline-bar {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      padding-left: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: #fff;
+      min-width: 6px;
+      transition: all 0.3s ease;
+    }
+    .span-duration {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      text-align: right;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Colors per service */
+    .svc-backend-api { background: #3b82f6; color: #fff; }
+    .svc-cti-adapter { background: #f59e0b; color: #fff; }
+    .svc-speech-adapter { background: #8b5cf6; color: #fff; }
+    .svc-core-banking-adapter { background: #10b981; color: #fff; }
+    .svc-legacy-api-gateway { background: #06b6d4; color: #fff; }
+    .svc-microservice { background: #ec4899; color: #fff; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .tab {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: var(--accent-blue);
+      color: #fff;
+      border-color: var(--accent-blue);
+    }
+    pre.code-view {
+      background: #090d16;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #38bdf8;
+      overflow-x: auto;
+      max-height: 400px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="brand">
+      <div class="brand-logo">B</div>
+      <div class="brand-text">
+        <h1>B.Collection Live Telemetry & Tracing Visualizer</h1>
+        <p>Distributed Observability & Performance Monitoring (W3C Standard & Prometheus Ready)</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="badge" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #10b981;">
+        <span class="badge-dot"></span> <span id="refresh-status">LIVE STREAMING</span>
+      </div>
+      <button class="btn btn-outline" id="btn-toggle-auto" onclick="toggleAutoRefresh()">Pause</button>
+      <button class="btn btn-outline" onclick="fetchTelemetry()">Làm Mới</button>
+      <a href="/metrics" target="_blank" class="btn btn-primary">Xem /metrics</a>
+    </div>
+  </header>
+
+  <!-- KPI Metrics Grid -->
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Tổng Số Request</div>
+      <div class="kpi-value" id="kpi-total-reqs">0</div>
+      <div class="kpi-sub" id="kpi-uptime">Uptime: 0s</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Độ Trễ Trung Bình</div>
+      <div class="kpi-value"><span id="kpi-latency-avg">0</span> <span class="kpi-unit">ms</span></div>
+      <div class="kpi-sub">End-to-End Latency</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Độ Trễ P95</div>
+      <div class="kpi-value"><span id="kpi-latency-p95">0</span> <span class="kpi-unit">ms</span></div>
+      <div class="kpi-sub">95% request nhanh hơn mức này</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Tỷ Lệ Lỗi (Error Rate)</div>
+      <div class="kpi-value"><span id="kpi-error-rate">0.0</span> <span class="kpi-unit">%</span></div>
+      <div class="kpi-sub" id="kpi-error-count">0 lỗi (HTTP >= 400)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Cụm Dịch Vụ Kết Nối</div>
+      <div class="kpi-value"><span id="kpi-active-services">7 / 7</span></div>
+      <div class="kpi-sub">Gateway & 6 Microservices</div>
+    </div>
+  </section>
+
+  <!-- Services Status Bar -->
+  <div class="services-bar">
+    <span class="services-bar-title">Hệ Sinh Thái Dịch Vụ:</span>
+    <span class="badge"><span class="badge-dot"></span> Backend API (:8088)</span>
+    <span class="badge"><span class="badge-dot"></span> Legacy Gateway (:8090)</span>
+    <span class="badge"><span class="badge-dot"></span> Core Banking (:8091)</span>
+    <span class="badge"><span class="badge-dot"></span> LOS Origination (:8092)</span>
+    <span class="badge"><span class="badge-dot"></span> CIC Gateway (:8093)</span>
+    <span class="badge"><span class="badge-dot"></span> CTI Telephony (:8094)</span>
+    <span class="badge"><span class="badge-dot"></span> Speech AI (:8095)</span>
+    <span class="badge"><span class="badge-dot"></span> Messaging (:8096)</span>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs">
+    <div class="tab active" id="tab-traces" onclick="switchTab('traces')">Danh Sách Traces Gần Nhất (Live Feed)</div>
+    <div class="tab" id="tab-metrics" onclick="switchTab('metrics')">Prometheus Metrics Preview</div>
+    <div class="tab" id="tab-grafana" onclick="switchTab('grafana')">Hướng Dẫn Kết Nối Grafana</div>
+  </div>
+
+  <!-- Tab Contents -->
+  <div class="main-grid">
+
+    <!-- Traces View -->
+    <div id="view-traces" class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span>Tất Cả Request Gần Nhất Được Bắt Qua W3C Distributed Tracing</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="filter-input" placeholder="Tìm theo URL hoặc Case ID..." onkeyup="filterTraces()" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px; width: 240px;">
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Thời Điểm</th>
+              <th>Phương Thức</th>
+              <th>Endpoint / Path</th>
+              <th>Status</th>
+              <th>Tổng Thời Gian</th>
+              <th>Số Spans</th>
+              <th>W3C Trace ID</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="traces-tbody">
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">Đang tải dữ liệu telemetry...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Prometheus Metrics Raw View -->
+    <div id="view-metrics" class="card" style="display: none;">
+      <div class="card-header">
+        <div class="card-title">Prometheus Text Format (/metrics)</div>
+        <button class="btn btn-outline" onclick="fetchRawMetrics()">Tải lại Metrics</button>
+      </div>
+      <div style="padding: 16px;">
+        <pre class="code-view" id="raw-metrics-content">Đang tải metrics...</pre>
+      </div>
+    </div>
+
+    <!-- Grafana Guide View -->
+    <div id="view-grafana" class="card" style="display: none;">
+      <div class="card-header">
+        <div class="card-title">Tích Hợp Sẵn Sàng Với Grafana & Prometheus</div>
+      </div>
+      <div style="padding: 24px;">
+        <h3 style="color: #fff; margin-bottom: 12px; font-size: 16px;">1. Cấu hình Prometheus Scraper (prometheus.yml)</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: 13px;">File cấu hình đã được tạo sẵn tại <code style="color: var(--accent-cyan);">deploy/telemetry/prometheus.yml</code>:</p>
+        <pre class="code-view" style="margin-bottom: 20px;">
+scrape_configs:
+  - job_name: 'bcollection-platform'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['host.docker.internal:8088', 'host.docker.internal:8090']
+        </pre>
+
+        <h3 style="color: #fff; margin-bottom: 12px; font-size: 16px;">2. Khởi chạy cụm Grafana bằng Docker Compose</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: 13px;">Chỉ cần thực hiện 1 lệnh duy nhất tại thư mục dự án:</p>
+        <pre class="code-view">
+docker compose -f deploy/telemetry/docker-compose.telemetry.yml up -d
+        </pre>
+        <p style="color: var(--text-secondary); margin-top: 12px; font-size: 13px;">Sau đó truy cập Grafana tại <a href="http://localhost:3000" target="_blank" style="color: var(--accent-blue);">http://localhost:3000</a> (User/Pass: admin / admin) để nạp Dashboard có sẵn.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Waterfall Trace Detail Modal -->
+  <div class="modal-overlay" id="trace-modal" onclick="closeModalOnOverlay(event)">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size: 16px; color: #fff;" id="modal-trace-title">Chi Tiết Trace Phân Rã (Waterfall Breakdown)</h2>
+          <p style="font-size: 12px; color: var(--text-muted); font-family: var(--font-mono);" id="modal-trace-id">Trace ID: ...</p>
+        </div>
+        <button class="btn btn-outline" onclick="closeModal()">Đóng</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+          <div class="kpi-card" style="flex: 1; padding: 12px 16px;">
+            <div class="kpi-label">Tổng Độ Trễ</div>
+            <div class="kpi-value" style="font-size: 20px;" id="modal-total-duration">0 ms</div>
+          </div>
+          <div class="kpi-card" style="flex: 1; padding: 12px 16px;">
+            <div class="kpi-label">Số Lượng Spans</div>
+            <div class="kpi-value" style="font-size: 20px;" id="modal-span-count">0</div>
+          </div>
+          <div class="kpi-card" style="flex: 1; padding: 12px 16px;">
+            <div class="kpi-label">HTTP Status</div>
+            <div class="kpi-value" style="font-size: 20px;" id="modal-status-code">200</div>
+          </div>
+        </div>
+
+        <div class="waterfall-container">
+          <div class="waterfall-header">
+            <span>DỊCH VỤ & THAO TÁC (SPANS)</span>
+            <span>TIMELINE PHÂN RÃ THỜI GIAN THỰC (GANTT CHART)</span>
+            <span style="text-align: right;">ĐỘ TRỄ</span>
+          </div>
+          <div id="waterfall-rows">
+            <!-- Render rows dynamically -->
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">Metadata & Attributes Nghiệp Vụ:</h4>
+          <pre class="code-view" id="modal-attributes-json">{}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let autoRefresh = true;
+    let refreshTimer = null;
+    let cachedTraces = [];
+
+    async function fetchTelemetry() {
+      try {
+        const [tracesRes, statsRes] = await Promise.all([
+          fetch('/api/telemetry/traces?limit=100'),
+          fetch('/api/telemetry/stats')
+        ]);
+        if (tracesRes.ok && statsRes.ok) {
+          const traces = await tracesRes.json();
+          const stats = await statsRes.json();
+          cachedTraces = traces;
+          renderStats(stats);
+          renderTraces(traces);
+        }
+      } catch (err) {
+        console.error("Lỗi tải telemetry:", err);
+      }
+    }
+
+    function renderStats(stats) {
+      document.getElementById('kpi-total-reqs').textContent = stats.total_requests.toLocaleString();
+      document.getElementById('kpi-uptime').textContent = `Uptime: ${stats.uptime_seconds}s`;
+      document.getElementById('kpi-latency-avg').textContent = stats.latency_avg_ms;
+      document.getElementById('kpi-latency-p95').textContent = stats.latency_p95_ms;
+      document.getElementById('kpi-error-rate').textContent = stats.error_rate_pct;
+      document.getElementById('kpi-error-count').textContent = `${stats.total_errors} lỗi (HTTP >= 400)`;
+    }
+
+    function renderTraces(traces) {
+      const tbody = document.getElementById('traces-tbody');
+      if (!traces || traces.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">Chưa có request nào phát sinh. Hãy thao tác trên UI http://localhost:3002 để bắt request!</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = traces.map(t => {
+        const parts = t.root_name.split(' ');
+        const method = parts[0] || 'GET';
+        const path = parts.slice(1).join(' ') || t.root_name;
+        const statusCls = t.status_code >= 500 ? 'status-5xx' : (t.status_code >= 400 ? 'status-4xx' : 'status-2xx');
+        const timeStr = new Date(t.created_at).toLocaleTimeString();
+
+        return `
+          <tr onclick="showTraceDetail('${t.trace_id}')">
+            <td style="font-family: var(--font-mono); font-size: 11px;">${timeStr}</td>
+            <td><span class="method-badge method-${method}">${method}</span></td>
+            <td style="color: #fff; font-weight: 500;">${escapeHtml(path)}</td>
+            <td><span class="status-badge ${statusCls}">${t.status_code}</span></td>
+            <td style="font-family: var(--font-mono); font-weight: 600; color: #fff;">${t.duration_ms} ms</td>
+            <td><span class="badge">${t.span_count}</span></td>
+            <td><span class="trace-id">${t.trace_id.substring(0, 14)}...</span></td>
+            <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="event.stopPropagation(); showTraceDetail('${t.trace_id}')">Chi Tiết</button></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterTraces() {
+      const q = document.getElementById('filter-input').value.toLowerCase();
+      const filtered = cachedTraces.filter(t => 
+        t.root_name.toLowerCase().includes(q) || 
+        t.trace_id.toLowerCase().includes(q) ||
+        JSON.stringify(t.attributes).toLowerCase().includes(q)
+      );
+      renderTraces(filtered);
+    }
+
+    function showTraceDetail(traceId) {
+      const trace = cachedTraces.find(t => t.trace_id === traceId);
+      if (!trace) return;
+
+      document.getElementById('modal-trace-title').textContent = `${trace.root_name}`;
+      document.getElementById('modal-trace-id').textContent = `W3C Trace ID: ${trace.trace_id}`;
+      document.getElementById('modal-total-duration').textContent = `${trace.duration_ms} ms`;
+      document.getElementById('modal-span-count').textContent = trace.span_count;
+      document.getElementById('modal-status-code').textContent = trace.status_code;
+      document.getElementById('modal-attributes-json').textContent = JSON.stringify(trace.attributes, null, 2);
+
+      // Render Waterfall
+      const container = document.getElementById('waterfall-rows');
+      const minStart = Math.min(...trace.spans.map(s => s.start_time));
+      const totalDur = trace.duration_ms || 1.0;
+
+      container.innerHTML = trace.spans.map(s => {
+        const offsetMs = (s.start_time - minStart) * 1000;
+        const spanDur = s.duration_ms || 0.1;
+        const leftPct = Math.min(100, Math.max(0, (offsetMs / totalDur) * 100));
+        const widthPct = Math.min(100 - leftPct, Math.max(2, (spanDur / totalDur) * 100));
+
+        let color = '#3b82f6';
+        if (s.service_name.includes('cti')) color = '#f59e0b';
+        else if (s.service_name.includes('speech')) color = '#8b5cf6';
+        else if (s.service_name.includes('core')) color = '#10b981';
+        else if (s.service_name.includes('gateway')) color = '#06b6d4';
+        else if (s.service_name.includes('guardrail')) color = '#ec4899';
+
+        return `
+          <div class="waterfall-row">
+            <div class="span-info">
+              <span class="span-service" style="background: ${color}22; color: ${color}; border: 1px solid ${color}44;">${s.service_name}</span>
+              <div class="span-name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
+            </div>
+            <div class="timeline-track">
+              <div class="timeline-bar" style="left: ${leftPct}%; width: ${widthPct}%; background: ${color}; box-shadow: 0 0 10px ${color}66;">
+                ${spanDur >= 5 ? spanDur + 'ms' : ''}
+              </div>
+            </div>
+            <div class="span-duration">${spanDur} ms</div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('trace-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('trace-modal').style.display = 'none';
+    }
+
+    function closeModalOnOverlay(e) {
+      if (e.target.id === 'trace-modal') closeModal();
+    }
+
+    function toggleAutoRefresh() {
+      autoRefresh = !autoRefresh;
+      const btn = document.getElementById('btn-toggle-auto');
+      const status = document.getElementById('refresh-status');
+      if (autoRefresh) {
+        btn.textContent = 'Pause';
+        status.textContent = 'LIVE STREAMING';
+        startTimer();
+      } else {
+        btn.textContent = 'Resume';
+        status.textContent = 'PAUSED';
+        clearInterval(refreshTimer);
+      }
+    }
+
+    function startTimer() {
+      clearInterval(refreshTimer);
+      refreshTimer = setInterval(fetchTelemetry, 2000);
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+
+      document.getElementById('view-traces').style.display = tabId === 'traces' ? 'block' : 'none';
+      document.getElementById('view-metrics').style.display = tabId === 'metrics' ? 'block' : 'none';
+      document.getElementById('view-grafana').style.display = tabId === 'grafana' ? 'block' : 'none';
+
+      if (tabId === 'metrics') fetchRawMetrics();
+    }
+
+    async function fetchRawMetrics() {
+      try {
+        const res = await fetch('/metrics');
+        const text = await res.text();
+        document.getElementById('raw-metrics-content').textContent = text;
+      } catch (err) {
+        document.getElementById('raw-metrics-content').textContent = 'Lỗi nạp metrics: ' + err;
+      }
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Khởi chạy ban đầu
+    fetchTelemetry();
+    startTimer();
+  </script>
+</body>
+</html>

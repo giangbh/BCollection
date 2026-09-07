@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'bcollection-dashboards'
+    orgId: 1
+    folder: 'B.Collection Platform'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
