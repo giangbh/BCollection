@@ -17,6 +17,11 @@ PTP đối soát và optimistic versioning. Xem [ADR-003](docs/adr/ADR-003-case-
 cho semantics, API, migration và giới hạn. Đây vẫn là POC demo/test; không mở ghi
 Core thật, EWS/policy handoff/outcome bus vẫn thuộc các bước tiếp theo.
 
+Giao diện Case Workspace mới nối API PR-02, có lịch hẹn và phản hồi lưu backend,
+phạm vi case/CIF, PTP–payment và bằng chứng dữ liệu. Xem
+[hướng dẫn triển khai UI](docs/UI-Case-Workspace-Implementation.md) để chạy, kiểm thử,
+migration và các giới hạn còn lại.
+
 ## Cài đặt từ checkout mới
 
 Yêu cầu Python **3.12**, Node.js **22** và npm. Chạy tại repo root:

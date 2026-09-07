@@ -1,4 +1,4 @@
-name: PR-01 foundation checks
+name: B.Collection checks
 on: [push, pull_request]
 permissions:
   contents: read
@@ -23,3 +23,7 @@ jobs:
           cache: npm
           cache-dependency-path: bcollection-platform/apps/collector-workspace/package-lock.json
       - run: make frontend-install frontend-build
+      - run: npm --prefix bcollection-platform/apps/collector-workspace test
+      - run: npx playwright install --with-deps chromium
+        working-directory: bcollection-platform/apps/collector-workspace
+      - run: npm --prefix bcollection-platform/apps/collector-workspace run test:e2e

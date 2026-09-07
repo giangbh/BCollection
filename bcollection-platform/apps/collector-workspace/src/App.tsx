@@ -1,208 +1,203 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { HeaderSoftphone } from './components/HeaderSoftphone';
-import { CaseQueueTable } from './components/CaseQueueTable';
-import { PersonaCardView } from './components/PersonaCardView';
-import { CallWrapupModal } from './components/CallWrapupModal';
-import { ManualEnrichmentModal } from './components/ManualEnrichmentModal';
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  BriefcaseBusiness,
+  ListTodo,
+  Handshake,
+  Radar,
+  FlaskConical,
+  SunMoon,
+} from "lucide-react";
+import { CaseQueuePage } from "./workspace/CaseQueuePage";
+import { CaseWorkspacePage } from "./workspace/CaseWorkspacePage";
+import type { Runtime, Section } from "./workspace/types";
+import { request, errorText } from "./workspace/api";
+import "./workspace/workspace.css";
 
-export const App: React.FC = () => {
-  const [cases, setCases] = useState<any[]>([]);
-  const [selectedCase, setSelectedCase] = useState<any>(null);
-  const [personaData, setPersonaData] = useState<any>(null);
-  const [loadingPersona, setLoadingPersona] = useState(false);
-  const [runtime, setRuntime] = useState<{ mode: string; simulation: boolean } | null>(null);
-  const [caseHistory, setCaseHistory] = useState<any[]>([]);
-
-  // Softphone state
-  const [callState, setCallState] = useState<'IDLE' | 'CALLING' | 'CONNECTED' | 'ENDED'>('IDLE');
-  const [callDuration, setCallDuration] = useState(0);
-  const [guardrailToken, setGuardrailToken] = useState<string | null>(null);
-  const wrapupRequest = useRef<{ content: string; id: string } | null>(null);
-
-  // Modals
-  const [isWrapupOpen, setIsWrapupOpen] = useState(false);
-  const [isEnrichmentOpen, setIsEnrichmentOpen] = useState(false);
-
-  // Fetch initial case queue
-  useEffect(() => {
-    fetch('/api/runtime').then((res) => res.json()).then(setRuntime).catch(() => setRuntime(null));
-    fetch('/api/cases')
-      .then((res) => res.json())
-      .then((data) => {
-        setCases(data);
-        if (data.length > 0) {
-          handleSelectCase(data[0]);
+function routeFromHash() {
+  try {
+    const parts = location.hash.slice(1).split("/");
+    return parts[1] === "cases" && parts[2]
+      ? {
+          id: decodeURIComponent(parts[2]),
+          section: (["work", "ptp", "evidence"].includes(parts[3])
+            ? parts[3]
+            : "work") as Section,
         }
+      : { id: "", section: "work" as Section };
+  } catch {
+    return { id: "", section: "work" as Section };
+  }
+}
+export function App() {
+  const [route, setRoute] = useState(routeFromHash);
+  const [runtime, setRuntime] = useState<Runtime | null>(null),
+    [runtimeError, setRuntimeError] = useState(""),
+    [retry, setRetry] = useState(0);
+  const [locked, setLocked] = useState(false),
+    [navigationError, setNavigationError] = useState("");
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light",
+  );
+  const routeRef = useRef(route),
+    lockedRef = useRef(locked);
+  routeRef.current = route;
+  lockedRef.current = locked;
+  const onLocked = useCallback((value: boolean) => setLocked(value), []);
+  useEffect(() => {
+    const abort = new AbortController();
+    setRuntimeError("");
+    request<Runtime>("/api/runtime", { signal: abort.signal })
+      .then((r) => {
+        if (!abort.signal.aborted) setRuntime(r);
       })
-      .catch((err) => console.error('Error fetching cases:', err));
+      .catch((e) => {
+        if (!abort.signal.aborted) {
+          setRuntime(null);
+          setRuntimeError(errorText(e));
+        }
+      });
+    return () => abort.abort();
+  }, [retry]);
+  useEffect(() => {
+    const handle = () => {
+      const next = routeFromHash();
+      if (lockedRef.current && next.id !== routeRef.current.id) {
+        history.replaceState(
+          null,
+          "",
+          "#/cases/" +
+            encodeURIComponent(routeRef.current.id) +
+            "/" +
+            routeRef.current.section,
+        );
+        setNavigationError(
+          "Hoàn tất hoặc đóng biểu mẫu/cuộc gọi trước khi đổi hồ sơ.",
+        );
+        return;
+      }
+      setRoute(next);
+    };
+    const beforeUnload = (e: BeforeUnloadEvent) => {
+      if (lockedRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("hashchange", handle);
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      window.removeEventListener("hashchange", handle);
+      window.removeEventListener("beforeunload", beforeUnload);
+    };
   }, []);
-
-  // Call duration timer
-  useEffect(() => {
-    let interval: any = null;
-    if (callState === 'CONNECTED') {
-      interval = setInterval(() => setCallDuration((prev) => prev + 1), 1000);
-    } else if (callState === 'IDLE') {
-      setCallDuration(0);
+  const navigate = (id: string, section: Section = "work") => {
+    if (locked && id !== route.id) {
+      setNavigationError(
+        "Hoàn tất hoặc đóng biểu mẫu/cuộc gọi trước khi đổi hồ sơ.",
+      );
+      return;
     }
-    return () => clearInterval(interval);
-  }, [callState]);
-
-  const handleSelectCase = (caseItem: any) => {
-    if (callState !== 'IDLE') return;
-    setSelectedCase(caseItem);
-    setLoadingPersona(true);
-
-    // Nạp Persona 360
-    fetch(`/api/cases/${caseItem.case_id}/persona`)
-      .then((res) => res.json())
-      .then((data) => {
-        setPersonaData(data);
-        setLoadingPersona(false);
-      })
-      .catch((err) => {
-        console.error('Error fetching persona:', err);
-        setLoadingPersona(false);
-      });
-
-    // Nạp Lịch sử tương tác Case History
-    fetch(`/api/cases/${caseItem.case_id}/history`)
-      .then((res) => res.json())
-      .then((histData) => setCaseHistory(histData))
-      .catch((err) => console.error('Error fetching history:', err));
+    setNavigationError("");
+    location.hash = id
+      ? "/cases/" + encodeURIComponent(id) + "/" + section
+      : "/cases";
   };
-
-  const handleStartCall = () => {
-    if (!selectedCase) return;
-    setCallState('CALLING');
-    wrapupRequest.current = null;
-
-    // Gọi API evaluate intent qua L6 Guardrail
-    fetch(`/api/cases/${selectedCase.case_id}/call-intent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target_party_id: selectedCase.debtor_cif, channel: 'VOICE' })
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.is_allowed) {
-          setGuardrailToken(data.guardrail_token);
-          setTimeout(() => setCallState('CONNECTED'), 1200); // Giả lập nối máy
-        } else {
-          alert(`🚫 KHÔNG THỂ GỌI:\n${data.blocking_reason || data.detail || 'Thiếu xác nhận trạng thái case/Core'}`);
-          setCallState('IDLE');
-        }
-      })
-      .catch((err) => {
-        alert('Lỗi kết nối Guardrail Service: ' + err);
-        setCallState('IDLE');
-      });
-  };
-
-  const handleEndCall = () => {
-    setCallState('ENDED');
-    setIsWrapupOpen(true);
-  };
-
-  const handleSubmitWrapup = (outcome: string, ptpAmount?: number, ptpDate?: string, notes?: string) => {
-    if (!selectedCase) return;
-    const content = JSON.stringify({ case_id: selectedCase.case_id, outcome, ptpAmount, ptpDate, notes });
-    if (!wrapupRequest.current || wrapupRequest.current.content !== content) {
-      wrapupRequest.current = { content, id: crypto.randomUUID() };
-    }
-
-    fetch(`/api/cases/${selectedCase.case_id}/call-wrapup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        guardrail_token: guardrailToken || '',
-        command_id: wrapupRequest.current.id,
-        expected_version: selectedCase.case_version,
-        outcome,
-        ptp_amount: ptpAmount,
-        ptp_date: ptpDate,
-        notes
-      })
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
-        return data;
-      })
-      .then(() => {
-        setIsWrapupOpen(false);
-        setCallState('IDLE');
-        // Refresh cases
-        fetch('/api/cases')
-          .then((res) => res.json())
-          .then((data) => { setCases(data); setSelectedCase(data.find((c: any) => c.case_id === selectedCase.case_id) || null); });
-        // Refresh case history
-        fetch(`/api/cases/${selectedCase.case_id}/history`)
-          .then((res) => res.json())
-          .then((histData) => setCaseHistory(histData));
-      })
-      .catch((err) => alert('Chưa lưu wrapup: ' + err.message + '. Nếu case đã thay đổi, tải lại dữ liệu trước khi xử lý tiếp.'));
-  };
-
-  const handleSubmitFact = (factType: string, payload: any) => {
-    alert(`Đã ghi nhận Event Fact [${factType}]:\n${JSON.stringify(payload)}`);
-  };
-
+  const navItems = [
+    { key: "queue", title: "Danh sách hồ sơ", Icon: ListTodo },
+    { key: "work", title: "Hồ sơ xử lý", Icon: BriefcaseBusiness },
+    { key: "ptp", title: "PTP & thanh toán", Icon: Handshake },
+    { key: "evidence", title: "EWS & bằng chứng", Icon: Radar },
+  ];
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      <div role="status" style={{ padding: '8px 16px', background: '#713f12', color: '#fff', fontSize: 13, flexShrink: 0 }}>
-        {!runtime ? 'Chưa xác định chế độ môi trường - không dùng cho vận hành thực tế.' : runtime.simulation
-          ? `${runtime.mode.toUpperCase()} - Mô phỏng; dữ liệu seed là SYNTHETIC, không phải kết quả thu hồi thực tế.`
-          : 'INTEGRATION - Chỉ đọc; AI mô phỏng và hành động thu hồi bị vô hiệu hóa trong PR-01.'}
+    <div id="bc-workspace" style={{ colorScheme: theme }}>
+      <aside className="bc-sidebar">
+        <div className="bc-brand">
+          <div>
+            <b>BIDV</b>
+            <span className="bc-flower" aria-hidden="true">
+              ✳
+            </span>
+          </div>
+          <p>B.Collection</p>
+          <small>COLLECTION WORKSPACE</small>
+        </div>
+        <nav className="bc-nav" aria-label="Điều hướng chính">
+          <div className="bc-nav-label">KHÔNG GIAN LÀM VIỆC</div>
+          {navItems.map(({ key, title, Icon }) => (
+            <button
+              key={key}
+              aria-current={
+                (!route.id ? key === "queue" : key === route.section)
+                  ? "page"
+                  : undefined
+              }
+              disabled={key !== "queue" && !route.id}
+              onClick={() =>
+                navigate(
+                  key === "queue" ? "" : route.id,
+                  key === "queue" ? "work" : (key as Section),
+                )
+              }
+            >
+              <Icon aria-hidden="true" />
+              {title}
+            </button>
+          ))}
+        </nav>
+        <div className="bc-sidebar-foot">
+          B.Collection POC
+          <br />
+          <small>Chưa dùng vận hành thực tế</small>
+        </div>
+      </aside>
+      <div className="bc-body">
+        <header className="bc-topbar">
+          <span>
+            Hồ sơ xử lý / <strong>{route.id || "Danh sách"}</strong>
+          </span>
+          <button
+            className="bc-link"
+            aria-label="Đổi giao diện sáng tối"
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+          >
+            <SunMoon />
+            {theme === "light" ? "Sáng" : "Tối"}
+          </button>
+        </header>
+        <div className="bc-demo" role="status">
+          <FlaskConical aria-hidden="true" />
+          {runtime
+            ? runtime.simulation
+              ? runtime.mode.toUpperCase() +
+                " · Dữ liệu mô phỏng, không thực hiện cuộc gọi thật"
+              : "INTEGRATION · Chỉ đọc; AI mô phỏng và tác nghiệp bị vô hiệu hóa"
+            : "Chưa xác định runtime · Tạm khóa toàn bộ tác nghiệp"}
+          {runtimeError && (
+            <button className="bc-link" onClick={() => setRetry(retry + 1)}>
+              Thử lại runtime
+            </button>
+          )}
+        </div>
+        {navigationError && (
+          <p className="bc-error" role="alert">
+            {navigationError}
+          </p>
+        )}
+        {route.id ? (
+          <CaseWorkspacePage
+            key={route.id}
+            caseId={route.id}
+            section={route.section}
+            setSection={(s) => navigate(route.id, s)}
+            runtime={runtime}
+            onLocked={onLocked}
+          />
+        ) : (
+          <CaseQueuePage onSelect={(id) => navigate(id)} />
+        )}
       </div>
-      {/* Top Header & Softphone */}
-      <HeaderSoftphone
-        activeCase={selectedCase}
-        callState={callState}
-        callDuration={callDuration}
-        onStartCall={handleStartCall}
-        onEndCall={handleEndCall}
-      />
-
-      {/* Main Workspace Body */}
-      <main style={{
-        flex: 1,
-        display: 'grid',
-        gridTemplateColumns: '48% 52%',
-        gap: '16px',
-        padding: '16px',
-        overflow: 'hidden'
-      }}>
-        {/* Left Column: Case Queue */}
-        <CaseQueueTable
-          cases={cases}
-          selectedCaseId={selectedCase?.case_id || null}
-          onSelectCase={handleSelectCase}
-        />
-
-        {/* Right Column: Debtor 360 Persona Card & Case History */}
-        <PersonaCardView
-          persona={personaData}
-          history={caseHistory}
-          onOpenEnrichment={() => setIsEnrichmentOpen(true)}
-        />
-      </main>
-
-      {/* Modals */}
-      <CallWrapupModal
-        isOpen={isWrapupOpen}
-        activeCase={selectedCase}
-        callDuration={callDuration}
-        onClose={() => { setIsWrapupOpen(false); setCallState('IDLE'); }}
-        onSubmit={handleSubmitWrapup}
-      />
-
-      <ManualEnrichmentModal
-        isOpen={isEnrichmentOpen}
-        activeCase={selectedCase}
-        onClose={() => setIsEnrichmentOpen(false)}
-        onSubmitFact={handleSubmitFact}
-      />
     </div>
   );
-};
+}
