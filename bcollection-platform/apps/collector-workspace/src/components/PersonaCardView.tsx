@@ -51,7 +51,8 @@ export const PersonaCardView: React.FC<PersonaCardViewProps> = ({
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
-  const filteredHistory = history.filter((item) => {
+  const safeHistory = Array.isArray(history) ? history : [];
+  const filteredHistory = safeHistory.filter((item) => {
     if (historyFilter === 'ALL') return true;
     return item.channel === historyFilter;
   });

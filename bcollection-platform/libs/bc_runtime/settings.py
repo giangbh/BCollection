@@ -25,19 +25,20 @@ class RuntimeSettings:
 
     def validate_adapters(self):
         # Explicitly reject mixed mock/HTTP profiles; never silently fall back.
+        allow_http_demo = os.getenv("ALLOW_HTTP_ADAPTERS_IN_DEMO", "0") == "1"
         for prefix, url_name in (
             ("CORE_BANKING", "CORE_BANKING_API_URL"),
             ("LOS", "LOS_API_URL"),
             ("CIC", "CIC_GATEWAY_URL"),
         ):
             mode = os.getenv(f"{prefix}_MODE", "mock").lower()
-            expected = "http" if self.mode == "integration" else "mock"
+            expected = "http" if (self.mode == "integration" or allow_http_demo) else "mock"
             if mode != expected:
                 raise ValueError(f"{prefix}_MODE must be {expected} for {self.mode}")
-            if self.mode == "integration":
+            if self.mode == "integration" or (allow_http_demo and os.getenv(url_name)):
                 url = urlparse(os.getenv(url_name, ""))
                 if url.scheme not in {"http", "https"} or not url.netloc:
-                    raise ValueError(f"integration requires an explicit valid {url_name}")
+                    raise ValueError(f"{self.mode} requires an explicit valid {url_name}")
         # PR-01 integration is read-only. Outbound messaging remains disabled.
-        if os.getenv("MESSAGING_MODE", "mock").lower() != "mock":
+        if self.mode == "integration" and os.getenv("MESSAGING_MODE", "mock").lower() != "mock":
             raise ValueError("PR-01 does not enable outbound HTTP messaging")

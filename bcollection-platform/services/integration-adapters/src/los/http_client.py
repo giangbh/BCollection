@@ -16,7 +16,7 @@ class HttpLOSApiClient(LOSApiClient):
         api_key: Optional[str] = None,
         timeout_seconds: int = 5
     ):
-        self.base_url = (base_url or os.getenv("LOS_API_URL", "https://esb.bank.vn/api/los/v1")).rstrip("/")
+        self.base_url = (base_url or os.getenv("LOS_API_URL", "http://127.0.0.1:8090/legacy/los/v1")).rstrip("/")
         self.api_key = api_key or os.getenv("LOS_API_KEY", "")
         self.timeout = timeout_seconds
 

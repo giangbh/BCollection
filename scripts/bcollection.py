@@ -25,7 +25,14 @@ def main():
     seed.add_argument("--as-of", default="2026-09-01T09:00:00")
     serve = commands.add_parser("serve", help="Start API without seeding")
     serve.add_argument("--port", type=int, default=8088)
+    mock_legacy = commands.add_parser("mock-legacy", help="Start Mock Legacy Banking REST API Server")
+    mock_legacy.add_argument("--port", type=int, default=8090)
     args = parser.parse_args()
+    if args.command == "mock-legacy":
+        import uvicorn
+        from mock_legacy_server import app as legacy_app
+        uvicorn.run(legacy_app, host="127.0.0.1", port=args.port)
+        return
     os.environ["BCOLLECTION_MODE"] = args.mode
     if args.database:
         os.environ["BCOLLECTION_DB_PATH"] = args.database

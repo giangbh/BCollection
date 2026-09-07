@@ -347,7 +347,7 @@ class DynamicDebtorPersonaEngine:
             product_code=prod_code
         )
 
-        actual_ptp = behavioral["ptp_kept_rate"]
+        actual_ptp = behavioral.get("ptp_kept_rate")
 
         willingness_data = D2WillingnessEngine.calculate(
             dpd=dpd,
@@ -444,13 +444,13 @@ class DynamicDebtorPersonaEngine:
                 "salary_day": getattr(inflow_profile, "salary_day_of_month", 10) if getattr(inflow_profile, "has_payroll_relationship", True) else getattr(inflow_profile, "inferred_pay_day_of_month", 12)
             },
             "behavioral_summary": {
-                "total_interactions": behavioral["total_interactions"],
-                "historical_on_time_ratio": behavioral["historical_on_time_ratio"],
-                "prior_cure_count": behavioral["prior_cure_count"],
-                "app_logins_monthly": behavioral["app_logins"],
-                "ptp_kept_rate": behavioral["ptp_kept_rate"],
-                "ptp_mature_count": behavioral["ptp_mature_count"],
-                "missing_features": behavioral["missing_features"],
+                "total_interactions": behavioral.get("total_interactions", 0),
+                "historical_on_time_ratio": behavioral.get("historical_on_time_ratio"),
+                "prior_cure_count": behavioral.get("prior_cure_count", 0),
+                "app_logins_monthly": behavioral.get("app_logins"),
+                "ptp_kept_rate": behavioral.get("ptp_kept_rate"),
+                "ptp_mature_count": behavioral.get("ptp_mature_count", 0),
+                "missing_features": behavioral.get("missing_features", []),
                 "model_input_policy": "Missing installment history uses neutral 0.5 simulation prior; self-cure history uses 0, not an observed value."
             },
             "recommended_playbook": cbr_playbook,
