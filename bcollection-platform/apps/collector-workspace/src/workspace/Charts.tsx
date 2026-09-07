@@ -35,8 +35,16 @@ export function DonutChart({
           height={size}
           viewBox={`0 0 ${size} ${size}`}
           className="bc-donut-svg"
-          aria-label={`Biểu đồ cấu trúc dư nợ, tổng ${totalValue} ${totalUnit}`}
+          aria-label={`Biểu đồ cấu trúc dư nợ, tổng ${displayVal} ${displayUnit}`}
         >
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            stroke="var(--bc-line, #E2E8F0)"
+            strokeWidth={strokeWidth}
+          />
           {items.map((item, idx) => {
             const strokeDasharray = `${(item.percent / 100) * circumference} ${circumference}`;
             const strokeDashoffset = -((cumulativePercent / 100) * circumference);

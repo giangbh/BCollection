@@ -667,7 +667,7 @@ export function CaseWorkspacePage({
                   />
                 </div>
                 <div className="bc-col-42">
-                  <DebtStructureCard />
+                  <DebtStructureCard scope={scope} />
                 </div>
               </div>
 

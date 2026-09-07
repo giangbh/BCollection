@@ -421,10 +421,76 @@ export function ExposureTable({
   );
 }
 
+function formatSmartVnd(val: number): string {
+  if (val >= 1_000_000_000) {
+    return (val / 1_000_000_000).toFixed(2).replace(".", ",") + " tỷ";
+  }
+  if (val >= 1_000_000) {
+    return (val / 1_000_000).toFixed(2).replace(".", ",") + " tr";
+  }
+  return number(val) + " đ";
+}
+
 /**
  * 5. Debt Structure Donut (Widget 4)
  */
-export function DebtStructureCard() {
+export function DebtStructureCard({ scope }: { scope?: Scope }) {
+  let totalValStr = "15,2";
+  let totalUnitStr = "tỷ VND";
+  let items = [
+    { label: "Trong hạn", amount: "14,69 tỷ", percent: 96.7, color: "#10B981" },
+    { label: "Quá hạn", amount: "12,5 triệu", percent: 0.1, color: "#EF4444" },
+    { label: "Khác", amount: "0,51 tỷ", percent: 3.2, color: "#94A3B8" },
+  ];
+
+  if (scope && scope.total_vnd != null) {
+    const total = scope.total_vnd;
+    const overdue = Math.min(total, Math.max(0, scope.overdue_vnd || 0));
+    const interest = (scope.exposures || []).reduce(
+      (sum, e) => sum + (e.interest_vnd || 0),
+      0,
+    );
+    const inTerm = Math.max(0, total - overdue);
+
+    if (total > 0) {
+      if (total >= 1_000_000_000) {
+        totalValStr = (total / 1_000_000_000).toFixed(2).replace(".", ",");
+        totalUnitStr = "tỷ VND";
+      } else if (total >= 1_000_000) {
+        totalValStr = (total / 1_000_000).toFixed(2).replace(".", ",");
+        totalUnitStr = "triệu VND";
+      } else {
+        totalValStr = number(total);
+        totalUnitStr = "VND";
+      }
+
+      const pctCurrent = (inTerm / total) * 100;
+      const pctOverdue = (overdue / total) * 100;
+      const pctInterest = interest > 0 ? (interest / (total + interest)) * 100 : 0;
+
+      items = [
+        {
+          label: "Trong hạn",
+          amount: formatSmartVnd(inTerm),
+          percent: pctCurrent,
+          color: "#10B981",
+        },
+        {
+          label: "Quá hạn",
+          amount: formatSmartVnd(overdue),
+          percent: pctOverdue,
+          color: "#EF4444",
+        },
+        {
+          label: "Khác",
+          amount: interest > 0 ? formatSmartVnd(interest) : "0 đ",
+          percent: pctInterest,
+          color: "#94A3B8",
+        },
+      ];
+    }
+  }
+
   return (
     <section
       className="bc-widget-card"
@@ -434,22 +500,9 @@ export function DebtStructureCard() {
         <h2 className="bc-widget-title">Cấu trúc dư nợ theo trạng thái</h2>
       </div>
       <DonutChart
-        totalLabel="15,2 tỷ VND"
-        items={[
-          {
-            label: "Trong hạn",
-            amount: "14,69 tỷ",
-            percent: 96.7,
-            color: "#10B981",
-          },
-          {
-            label: "Quá hạn",
-            amount: "12,5 triệu",
-            percent: 0.1,
-            color: "#EF4444",
-          },
-          { label: "Khác", amount: "0,51 tỷ", percent: 3.2, color: "#94A3B8" },
-        ]}
+        totalValue={totalValStr}
+        totalUnit={totalUnitStr}
+        items={items}
       />
     </section>
   );
