@@ -21,6 +21,7 @@ export interface CaseRecord {
   contact_hold_reason: string | null;
   case_version: number;
   data_origin: string;
+  created_at?: string;
 }
 export interface Exposure {
   loan_id: string;
@@ -150,4 +151,15 @@ export interface Persona {
   };
   recommended_playbook?: unknown;
 }
-export type Section = "work" | "ptp" | "evidence";
+export type Section =
+  | "work"
+  | "customer"
+  | "credit"
+  | "case"
+  | "ptp"
+  | "interactions"
+  | "evidence"
+  | "collateral"
+  | "documents"
+  | "other";
+

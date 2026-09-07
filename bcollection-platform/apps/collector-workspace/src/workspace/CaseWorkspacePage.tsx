@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarClock, ArrowUpRight, RefreshCw, PhoneOff } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  CalendarClock,
+  ArrowUpRight,
+  RefreshCw,
+  PhoneOff,
+  X,
+  Phone,
+  Check,
+} from "lucide-react";
 import type {
   CommandResult,
   GuardrailResult,
@@ -12,13 +20,25 @@ import { ApiError, errorText, post, request } from "./api";
 import { actionCopy, dateTime, label, nextAction, stale } from "./model";
 import {
   CaseHeader,
-  CaseTimeline,
-  EvidencePanel,
-  ExposureTable,
-  GuardrailPanel,
-  PtpPaymentPanel,
   ScopeSummary,
+  QuickRiskAssessment,
+  ExposureTable,
+  DebtStructureCard,
+  EwsSignalsCard,
+  DpdHistoryCard,
+  RecentPtpCard,
+  RecentInteractionsCard,
+  NextActionCard,
+  GuardrailCard,
+  AiRecommendationsCard,
+  PtpPaymentPanel,
+  EvidencePanel,
+  CaseTimeline,
+  CustomerInfoPanel,
+  CollateralPanel,
+  DocumentsPanel,
 } from "./Panels";
+import { QuickNotes } from "./QuickNotes";
 
 type FormMode =
   | "schedule_contact"
@@ -26,6 +46,7 @@ type FormMode =
   | "reconcile"
   | "cancel_schedule"
   | "wrapup";
+
 interface Props {
   caseId: string;
   section: Section;
@@ -42,35 +63,40 @@ export function CaseWorkspacePage({
   onLocked,
 }: Props) {
   const [w, setW] = useState<Workspace | null>(null);
-  const [loading, setLoading] = useState(true),
-    [loadError, setLoadError] = useState("");
-  const [customer, setCustomer] = useState(false),
-    [profile, setProfile] = useState(false);
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [notice, setNotice] = useState("");
-  const [conflict, setConflict] = useState(false),
-    [mode, setMode] = useState<FormMode | null>(null);
-  const [reason, setReason] = useState(""),
-    [when, setWhen] = useState(""),
-    [decision, setDecision] = useState("ACCEPT");
-  const [outcome, setOutcome] = useState("BUSY_NO_ANSWER"),
-    [ptpAmount, setPtpAmount] = useState(""),
-    [ptpDate, setPtpDate] = useState(""),
-    [ptpLoan, setPtpLoan] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [customer, setCustomer] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [conflict, setConflict] = useState(false);
+  const [mode, setMode] = useState<FormMode | null>(null);
+
+  // Form states
+  const [reason, setReason] = useState("");
+  const [when, setWhen] = useState("");
+  const [decision, setDecision] = useState("ACCEPT");
+  const [outcome, setOutcome] = useState("BUSY_NO_ANSWER");
+  const [ptpAmount, setPtpAmount] = useState("");
+  const [ptpDate, setPtpDate] = useState("");
+  const [ptpLoan, setPtpLoan] = useState("");
+
+  // Call simulation
   const [call, setCall] = useState<"IDLE" | "CONNECTED" | "WRAPUP">("IDLE");
-  const [guard, setGuard] = useState<GuardrailResult | null>(null),
-    [guardMessage, setGuardMessage] = useState("");
-  const [persona, setPersona] = useState<Persona | null>(null),
-    [personaError, setPersonaError] = useState("");
+  const [guard, setGuard] = useState<GuardrailResult | null>(null);
+  const [guardMessage, setGuardMessage] = useState("");
+
+  // Persona
+  const [persona, setPersona] = useState<Persona | null>(null);
+  const [personaError, setPersonaError] = useState("");
   const [now, setNow] = useState(Date.now());
-  const alive = useRef(false),
-    sequence = useRef(0),
-    readAbort = useRef<AbortController>();
+
+  const alive = useRef(false);
+  const sequence = useRef(0);
+  const readAbort = useRef<AbortController>();
   const token = useRef("");
-  const command = useRef<{ key: string; id: string; version: number } | null>(
-    null,
-  );
+  const command = useRef<{ key: string; id: string; version: number } | null>(null);
+
   const base = `/api/cases/${encodeURIComponent(caseId)}`;
   const writable =
     !!runtime &&
@@ -93,8 +119,9 @@ export function CaseWorkspacePage({
         data.case?.case_id !== caseId ||
         !Array.isArray(data.case_scope?.exposures) ||
         !Array.isArray(data.customer_scope?.exposures)
-      )
+      ) {
         throw new Error("Dữ liệu workspace không đúng hồ sơ yêu cầu.");
+      }
       if (alive.current && seq === sequence.current) {
         setW(data);
         setPersona(null);
@@ -103,8 +130,9 @@ export function CaseWorkspacePage({
       }
       return true;
     } catch (e) {
-      if (!abort.signal.aborted && alive.current && seq === sequence.current)
+      if (!abort.signal.aborted && alive.current && seq === sequence.current) {
         setLoadError(errorText(e));
+      }
       return false;
     } finally {
       if (alive.current && seq === sequence.current) setLoading(false);
@@ -118,576 +146,694 @@ export function CaseWorkspacePage({
     return () => {
       alive.current = false;
       readAbort.current?.abort();
-      clearInterval(timer);
+      window.clearInterval(timer);
     };
   }, [load]);
-  useEffect(() => {
-    onLocked(busy || call !== "IDLE" || mode !== null);
-    return () => onLocked(false);
-  }, [busy, call, mode, onLocked]);
 
-  const reload = async () => {
-    const ok = await load();
-    setGuard(null);
-    setGuardMessage("");
-    if (ok && conflict) {
-      command.current = null;
-      setConflict(false);
-      setError("");
-      setNotice(
-        "Đã tải phiên bản mới. Nội dung nhập vẫn được giữ; rà soát đề xuất và dữ liệu trước khi gửi lại.",
+  useEffect(() => {
+    onLocked(mode !== null || call !== "IDLE");
+  }, [call, mode, onLocked]);
+
+  const reload = () => {
+    setConflict(false);
+    command.current = null;
+    void load();
+  };
+
+  if (loading && !w) {
+    return (
+      <div className="bc-loading" role="status" aria-busy="true">
+        Đang tải hồ sơ {caseId}...
+      </div>
+    );
+  }
+
+  if (loadError && !w) {
+    return (
+      <div className="bc-error-state" role="alert">
+        <h2>Không thể tải hồ sơ</h2>
+        <p>{loadError || "Hồ sơ không tồn tại."}</p>
+        <button className="bc-button primary" onClick={() => void load()}>
+          Thử tải lại
+        </button>
+      </div>
+    );
+  }
+
+  if (!w) return null;
+
+  const scope = customer ? w.customer_scope : w.case_scope;
+  const action = nextAction(w, now);
+  const copy = actionCopy[action];
+  const activeSchedule = w.contact_schedules.find((s) => s.status === "PLANNED");
+
+  const open = (nextMode: FormMode) => {
+    setError("");
+    setNotice("");
+    setMode(nextMode);
+    setReason("");
+    if (nextMode === "schedule_contact") {
+      setWhen(
+        activeSchedule?.scheduled_at?.slice(0, 16) ||
+          new Date(Date.now() + 3600000).toISOString().slice(0, 16),
       );
     }
+    if (nextMode === "wrapup") {
+      setPtpLoan(w.case_scope.exposures[0]?.loan_id || w.case.loan_id);
+      setPtpAmount(String(w.case.overdue_amount || 50000000));
+      const d = new Date(Date.now() + 7 * 86400000);
+      setPtpDate(d.toISOString().slice(0, 10));
+    }
   };
-  const perform = async (
-    kind: string,
-    payload: Record<string, unknown>,
-  ): Promise<boolean> => {
-    if (!w || !writable || busy || conflict) return false;
+
+  const perform = async (endpoint: string, payload: unknown, commandKey?: string) => {
     setBusy(true);
     setError("");
     setNotice("");
-    const key = JSON.stringify({ kind, payload });
-    if (!command.current || command.current.key !== key)
-      command.current = {
-        key,
-        id: crypto.randomUUID(),
-        version: w.case.case_version,
-      };
-    const envelope = {
-      command_id: command.current.id,
-      expected_version: command.current.version,
-    };
-    try {
-      await post<CommandResult>(
-        kind === "wrapup"
-          ? `${base}/call-wrapup`
-          : kind === "balance_check"
-            ? `${base}/balance-check`
-            : `${base}/commands/${kind}`,
-        kind === "wrapup"
-          ? { ...envelope, ...payload }
-          : kind === "balance_check"
-            ? envelope
-            : { ...envelope, payload },
-      );
-      command.current = null;
-      if (!alive.current) return true;
-      setMode(null);
-      setReason("");
-      setGuard(null);
-      if (kind === "wrapup") {
-        setCall("IDLE");
-        token.current = "";
+
+    // Command deduplication & retry preservation matching test requirements
+    let body = payload as Record<string, unknown>;
+    if (commandKey) {
+      if (
+        !command.current ||
+        command.current.key !== commandKey ||
+        command.current.version !== w.case.case_version
+      ) {
+        command.current = {
+          key: commandKey,
+          id: `cmd-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          version: w.case.case_version,
+        };
       }
-      const refreshed = await load();
-      if (alive.current)
-        setNotice(
-          refreshed
-            ? "Đã lưu vào hệ thống và tải lại trạng thái. Không có cuộc gọi hay tin nhắn thật được gửi."
-            : "Đã lưu thành công, nhưng chưa tải lại được trạng thái. Không gửi lại lệnh; hãy tải lại dữ liệu.",
-        );
+      body = {
+        command_id: command.current.id,
+        expected_version: command.current.version,
+        payload: payload,
+      };
+    }
+
+    try {
+      await post<CommandResult>(`${base}/${endpoint}`, body);
+      setNotice("Đã lưu vào hệ thống");
+      command.current = null;
+      await load();
       return true;
     } catch (e) {
-      if (alive.current) {
-        setError(errorText(e));
-        if (e instanceof ApiError && e.status === 409) setConflict(true);
+      setError(errorText(e));
+      if (e instanceof ApiError && e.status === 409) {
+        setConflict(true);
       }
       return false;
     } finally {
-      if (alive.current) setBusy(false);
+      setBusy(false);
     }
   };
 
-  const startCall = async () => {
-    if (
-      !w ||
-      !writable ||
-      busy ||
-      call !== "IDLE" ||
-      mode ||
-      nextAction(w) !== "CHECK_CONTACT"
-    )
-      return;
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mode || !w) return;
+
+    if (mode === "schedule_contact") {
+      const ok = await perform(
+        "commands/schedule_contact",
+        {
+          scheduled_at: new Date(when).toISOString(),
+          channel: "VOICE",
+          reason: reason.trim(),
+        },
+        "schedule",
+      );
+      if (ok) setMode(null);
+    } else if (mode === "cancel_schedule") {
+      if (!activeSchedule) return;
+      const ok = await perform(
+        "commands/cancel_schedule",
+        {
+          schedule_id: activeSchedule.schedule_id,
+          reason: reason.trim(),
+        },
+        "cancel",
+      );
+      if (ok) setMode(null);
+    } else if (mode === "decision_feedback") {
+      const ok = await perform(
+        "commands/decision_feedback",
+        {
+          recommendation_id: w.next_action.recommendation_id,
+          recommendation_kind: w.next_action.kind,
+          decision,
+          reason: reason.trim(),
+        },
+        "feedback",
+      );
+      if (ok) setMode(null);
+    } else if (mode === "reconcile") {
+      const ok = await perform("reconcile", {
+        reason: reason.trim(),
+      });
+      if (ok) setMode(null);
+    } else if (mode === "wrapup") {
+      const ok = await perform("call-wrapup", {
+        guardrail_token: token.current,
+        outcome,
+        notes: reason.trim(),
+        ptp:
+          outcome === "PTP_AGREED"
+            ? {
+                loan_id: ptpLoan || w.case.loan_id,
+                amount_vnd: parseInt(ptpAmount, 10),
+                due_date: ptpDate,
+              }
+            : undefined,
+      });
+      if (ok) {
+        setCall("IDLE");
+        setMode(null);
+      }
+    }
+  };
+
+  const handleCallIntent = async () => {
     setBusy(true);
     setError("");
-    setGuard(null);
-    setGuardMessage("Đang kiểm tra Core và guardrail...");
+    setNotice("");
     try {
       const result = await post<GuardrailResult>(`${base}/call-intent`, {
-        target_party_id: w.case.debtor_cif,
-        channel: "VOICE",
         expected_version: w.case.case_version,
       });
-      if (!alive.current) return;
       setGuard(result);
       if (result.is_allowed && result.guardrail_token) {
         token.current = result.guardrail_token;
         setCall("CONNECTED");
-        setGuardMessage(
-          "Đã kiểm tra cho cuộc gọi mô phỏng đang mở; không dùng lại cho lần sau.",
-        );
+        setGuardMessage("Đã đủ điều kiện. Cuộc gọi mô phỏng đang mở.");
       } else {
-        setGuardMessage(
-          result.blocking_reason || "Chưa đủ xác nhận. Không mở cuộc gọi.",
-        );
-        await load();
+        setGuardMessage(result.blocking_reason || "Chưa đủ điều kiện liên hệ.");
       }
     } catch (e) {
-      if (alive.current) {
-        setGuardMessage("Không có quyền liên hệ hiệu lực.");
-        setError(errorText(e));
-        if (e instanceof ApiError && e.status === 409) setConflict(true);
-      }
+      setError(errorText(e));
+      if (e instanceof ApiError && e.status === 409) setConflict(true);
     } finally {
-      if (alive.current) setBusy(false);
-    }
-  };
-  const open = (m: FormMode) => {
-    if (!busy) {
-      setMode(m);
-      setError("");
-      setNotice("");
-      setReason("");
+      setBusy(false);
     }
   };
 
-  if (!w)
-    return (
-      <main className="bc-content">
-        <h1>Hồ sơ xử lý</h1>
-        {loading ? (
-          <p role="status" className="bc-callout">
-            Đang tải dữ liệu hồ sơ...
-          </p>
-        ) : (
-          <>
-            <p role="alert" className="bc-error">
-              {loadError || "Không có dữ liệu."}
-            </p>
-            <button className="bc-button" onClick={load}>
-              Thử lại
-            </button>
-          </>
-        )}
-      </main>
-    );
-  const action = nextAction(w, now),
-    copy = actionCopy[action],
-    scope = customer ? w.customer_scope : w.case_scope;
-  const activeSchedule = w.contact_schedules.find(
-    (s) => s.status === "PLANNED",
-  );
-  const canPlan =
-    writable &&
-    w.case.lifecycle === "OPEN" &&
-    !w.case.contact_hold_reason &&
-    call === "IDLE";
+  const isBlocked =
+    !writable ||
+    w.case.lifecycle !== "OPEN" ||
+    !!w.case.contact_hold_reason ||
+    !!loadError;
+
   const canCheck =
     writable &&
+    !isBlocked &&
     action === "CHECK_CONTACT" &&
     !busy &&
     !conflict &&
     !mode &&
     call === "IDLE" &&
     !loading;
-  const primary = () => {
-    if (action === "BALANCE_CHECK") void perform("balance_check", {});
-    else if (action === "CHECK_CONTACT") void startCall();
-    else if (action === "WAIT_SCHEDULE") open("schedule_contact");
-    else setSection("ptp");
-  };
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mode || !reason.trim()) return;
-    if (mode === "schedule_contact")
-      void perform(mode, {
-        scheduled_at: when + ":00+07:00",
-        channel: "VOICE",
-        reason,
-      });
-    else if (mode === "decision_feedback")
-      void perform(mode, {
-        recommendation_id: w.next_action.recommendation_id,
-        recommendation_kind: w.next_action.kind,
-        decision,
-        reason,
-      });
-    else if (mode === "cancel_schedule")
-      void perform(mode, { schedule_id: activeSchedule?.schedule_id, reason });
-    else if (mode === "reconcile") void perform(mode, { reason });
-    else
-      void perform("wrapup", {
-        guardrail_token: token.current,
-        outcome,
-        notes: reason,
-        loan_id: ptpLoan || w.case.loan_id,
-        ptp_amount: outcome === "PTP_AGREED" ? Number(ptpAmount) : null,
-        ptp_date: outcome === "PTP_AGREED" ? ptpDate : null,
-      });
-  };
+
+  const tabs: { key: Section; title: string; ariaName: string }[] = [
+    { key: "work", title: "Tổng quan", ariaName: "Tác nghiệp" },
+    { key: "customer", title: "Thông tin khách hàng", ariaName: "Thông tin khách hàng" },
+    { key: "credit", title: "Nghĩa vụ tín dụng", ariaName: "Nghĩa vụ tín dụng" },
+    { key: "case", title: "Case & xử lý", ariaName: "Case & xử lý" },
+    { key: "ptp", title: "PTP & Thanh toán", ariaName: "PTP & thanh toán" },
+    { key: "interactions", title: "Lịch sử tương tác", ariaName: "Lịch sử tương tác" },
+    { key: "evidence", title: "EWS & Rủi ro", ariaName: "EWS & bằng chứng" },
+    { key: "collateral", title: "Tài sản bảo đảm", ariaName: "Tài sản bảo đảm" },
+    { key: "documents", title: "Tài liệu", ariaName: "Tài liệu" },
+    { key: "other", title: "Khác", ariaName: "Khác" },
+  ];
 
   return (
-    <main className="bc-content">
+    <div className="bc-workspace-page">
+      {/* 1. Header with Breadcrumb, Customer info & Case card */}
       <CaseHeader
         w={w}
-        profile={profile}
-        toggleProfile={() => setProfile(!profile)}
+        caseId={caseId}
+        customer={customer}
+        onToggleScope={(c) => setCustomer(c)}
       />
-      <div className="bc-scope-line">
-        <div className="bc-segment" role="group" aria-label="Phạm vi dữ liệu">
-          <button aria-pressed={!customer} onClick={() => setCustomer(false)}>
-            Case này · {w.case_scope.exposures.length} khoản vay
-          </button>
-          <button aria-pressed={customer} onClick={() => setCustomer(true)}>
-            Khách hàng · Đã ghi nhận ({w.customer_scope.exposures.length})
-          </button>
-        </div>
+
+      {/* Top utility reload action */}
+      <div className="bc-action-bar-top">
         <button
-          className="bc-link"
+          type="button"
+          className="bc-link-btn"
           disabled={busy || call === "CONNECTED"}
           onClick={reload}
         >
-          <RefreshCw />
+          <RefreshCw size={14} />
           {loading ? "Đang tải..." : "Tải lại dữ liệu"}
         </button>
       </div>
+
+      {/* Load Error (e.g. 503 during reload while case data is already present) */}
       {loadError && (
-        <p role="alert" className="bc-error">
-          {loadError} · Dữ liệu đang hiển thị có thể cũ; tạm khóa tác nghiệp.
-        </p>
+        <div className="bc-alert-banner error" role="alert">
+          <span>{loadError} · Dữ liệu đang hiển thị có thể cũ; tạm khóa tác nghiệp.</span>
+        </div>
       )}
-      <ScopeSummary
-        scope={scope}
-        customer={customer}
-        onEvidence={() => setSection("evidence")}
-      />
-      <div className="bc-states">
-        <span>
-          Giai đoạn<strong>{label(w.case.stage)}</strong>
-        </span>
-        <span>
-          Nghĩa vụ
-          <strong>
-            {w.case_scope.exposures.every(
-              (e) => e.balance_verified && !e.conflict,
-            ) && w.case_scope.exposures.length
-              ? w.case_scope.overdue_vnd === 0 && w.case_scope.max_dpd === 0
-                ? "Hết quá hạn"
-                : "Còn quá hạn"
-              : "Chưa xác minh đầy đủ"}
-          </strong>
-        </span>
-        <span>
-          PTP<strong>{w.ptps.length} cam kết riêng</strong>
-        </span>
-      </div>
-      <section
-        className={`bc-next ${action === "RECONCILE" ? "hold" : ""}`}
-        aria-label="Việc cần làm tiếp theo"
-      >
-        <div className="bc-next-icon">
-          <CalendarClock />
-        </div>
-        <div>
-          <div className="bc-eyebrow">
-            VIỆC TIẾP THEO · THEO TRẠNG THÁI CASE
-          </div>
-          <h2>{copy.title}</h2>
-          <small>{copy.note}</small>
-          {activeSchedule && (
-            <small>Lịch đã lưu: {dateTime(activeSchedule.scheduled_at)}</small>
-          )}
-        </div>
-        <div className="bc-next-action">
-          <button
-            className="bc-button primary"
-            disabled={
-              busy ||
-              loading ||
-              conflict ||
-              call !== "IDLE" ||
-              mode !== null ||
-              (!writable && !["VIEW_RESOLUTION", "RECONCILE"].includes(action))
-            }
-            onClick={primary}
-          >
-            {copy.button}
-          </button>
-          <small>
-            {!writable
-              ? "Chế độ chỉ đọc / chưa đủ dữ liệu"
-              : "Không tự động thực hiện liên hệ"}
-          </small>
-        </div>
-      </section>
+
+      {/* Notices & Alerts */}
       {notice && (
-        <p className="bc-message" role="status">
-          {notice}
-        </p>
+        <div className="bc-alert-banner success" role="status">
+          <Check size={16} />
+          <span>{notice}</span>
+        </div>
       )}
       {error && (
-        <p className="bc-error" role="alert">
-          {error}
-        </p>
+        <div className="bc-alert-banner error" role="alert">
+          <span>{error}</span>
+        </div>
       )}
+
+      {/* Call simulation active bar with exact h2 heading for tests */}
       {call === "CONNECTED" && (
-        <section className="bc-editor">
-          <h2>Cuộc gọi mô phỏng đang mở</h2>
-          <p>Không kết nối tổng đài hoặc gọi số điện thoại thật.</p>
+        <section className="bc-call-active-bar" role="alert">
+          <div className="bc-call-active-info">
+            <Phone size={18} className="bc-pulse-icon" />
+            <div>
+              <h2 style={{ fontSize: "14px", margin: 0, fontWeight: 700 }}>
+                Cuộc gọi mô phỏng đang mở
+              </h2>
+              <small>Không kết nối tổng đài hoặc gọi số điện thoại thật.</small>
+            </div>
+          </div>
           <button
-            className="bc-button"
+            type="button"
+            className="bc-button danger"
             onClick={() => {
               setCall("WRAPUP");
               open("wrapup");
             }}
           >
-            <PhoneOff />
-            Kết thúc & ghi nhận kết quả
+            <PhoneOff size={16} />
+            Kết thúc &amp; ghi nhận kết quả
           </button>
         </section>
       )}
+
+      {/* Editor Form Section */}
       {mode && (
         <section className="bc-editor" aria-label="Biểu mẫu tác nghiệp">
-          <div className="bc-panel-head">
-            <div>
-              <h2>
-                {
+          <div className="bc-modal-header">
+              <div>
+                <h2>
                   {
-                    schedule_contact: "Lên lịch / điều chỉnh lịch",
-                    cancel_schedule: "Hủy lịch liên hệ",
-                    decision_feedback: "Ghi nhận quyết định",
-                    reconcile: "Xác nhận đã rà soát",
-                    wrapup: "Ghi nhận kết quả cuộc gọi mô phỏng",
-                  }[mode]
-                }
-              </h2>
-              <small>
-                Case {w.case.case_id} · v{w.case.case_version} · Lưu vào backend{" "}
-                {runtime?.mode}
-              </small>
-            </div>
-            <button
-              className="bc-link"
-              disabled={busy}
-              onClick={() => {
-                setMode(null);
-                if (call === "WRAPUP") setCall("IDLE");
-              }}
-            >
-              Đóng (chưa lưu)
-            </button>
-          </div>
-          <form onSubmit={submit}>
-            {mode === "schedule_contact" && (
-              <>
-                <label htmlFor="schedule-at">
-                  Thời gian liên hệ · Asia/Ho_Chi_Minh
-                </label>
-                <input
-                  id="schedule-at"
-                  type="datetime-local"
-                  required
-                  value={when}
-                  onChange={(e) => setWhen(e.target.value)}
-                />
-                <p className="bc-table-note">
-                  Đây là kế hoạch cán bộ. Không tự ghi nhận rằng khách hàng đã
-                  đồng ý khung giờ này.
-                </p>
-              </>
-            )}
-            {mode === "decision_feedback" && (
-              <>
-                <p className="bc-callout">
-                  Đề xuất đang phản hồi: {actionCopy[w.next_action.kind].title}{" "}
-                  · Quy tắc {w.next_action.recommendation_id}, không phải AI.
-                </p>
-                <label htmlFor="decision">Quyết định</label>
-                <select
-                  id="decision"
-                  value={decision}
-                  onChange={(e) => setDecision(e.target.value)}
-                >
-                  <option value="ACCEPT">Chấp nhận đề xuất</option>
-                  <option value="ADJUST">Điều chỉnh đề xuất</option>
-                  <option value="DECLINE">Không áp dụng</option>
-                </select>
-              </>
-            )}
-            {mode === "reconcile" && (
-              <p className="bc-callout">
-                Chỉ xác nhận khi Core mới nhất đã bao phủ payment/reversal và
-                mọi nghĩa vụ. Không tự thay đổi số tiền. Đây là thao tác mô
-                phỏng, chưa có maker-checker production.
-              </p>
-            )}
-            {mode === "wrapup" && (
-              <>
-                <label htmlFor="outcome">Kết quả</label>
-                <select
-                  id="outcome"
-                  value={outcome}
-                  onChange={(e) => setOutcome(e.target.value)}
-                >
-                  <option value="BUSY_NO_ANSWER">Không nghe máy</option>
-                  <option value="REFUSED">Chưa thống nhất thanh toán</option>
-                  <option value="PTP_AGREED">Đồng ý cam kết PTP</option>
-                </select>
-                {outcome === "PTP_AGREED" && (
-                  <div className="bc-detail-grid">
-                    <div>
-                      <label htmlFor="ptp-loan">Khoản vay áp dụng</label>
-                      <select
-                        id="ptp-loan"
-                        value={ptpLoan || w.case.loan_id}
-                        onChange={(e) => setPtpLoan(e.target.value)}
-                      >
-                        {w.case_scope.exposures.map((l) => (
-                          <option key={l.loan_id}>{l.loan_id}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="ptp-amount">
-                        Số tiền cam kết (VND nguyên)
-                      </label>
-                      <input
-                        id="ptp-amount"
-                        type="number"
-                        min="1"
-                        step="1"
-                        max="9000000000000000"
-                        required
-                        value={ptpAmount}
-                        onChange={(e) => setPtpAmount(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="ptp-date">
-                        Ngày hẹn · Hết ngày giờ Việt Nam
-                      </label>
-                      <input
-                        id="ptp-date"
-                        type="date"
-                        required
-                        value={ptpDate}
-                        onChange={(e) => setPtpDate(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            <label htmlFor="reason">Lý do / nội dung ghi nhận</label>
-            <textarea
-              id="reason"
-              required
-              maxLength={2000}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-            <div className="bc-actions-row">
+                    {
+                      schedule_contact: "Lên lịch / điều chỉnh lịch",
+                      cancel_schedule: "Hủy lịch liên hệ",
+                      decision_feedback: "Ghi nhận quyết định",
+                      reconcile: "Xác nhận đã rà soát",
+                      wrapup: "Ghi nhận kết quả cuộc gọi mô phỏng",
+                    }[mode]
+                  }
+                </h2>
+                <small>
+                  Case {w.case.case_id} · v{w.case.case_version} · Lưu vào backend{" "}
+                  {runtime?.mode}
+                </small>
+              </div>
               <button
-                className="bc-button primary"
-                type="submit"
-                disabled={!writable || busy || conflict || loading}
+                type="button"
+                className="bc-modal-close"
+                disabled={busy}
+                onClick={() => {
+                  setMode(null);
+                  if (call === "WRAPUP") setCall("IDLE");
+                }}
               >
-                {busy ? "Đang lưu..." : "Lưu vào hệ thống"}
+                <X size={18} /> Đóng (chưa lưu)
               </button>
-              <small>
-                Không tạo outcome thu hồi thành công từ lời hứa hoặc quyết định.
-              </small>
             </div>
-          </form>
+
+            <form onSubmit={submit} className="bc-modal-form">
+              {mode === "schedule_contact" && (
+                <>
+                  <label htmlFor="schedule-at">Thời gian liên hệ</label>
+                  <input
+                    id="schedule-at"
+                    type="datetime-local"
+                    required
+                    value={when}
+                    onChange={(e) => setWhen(e.target.value)}
+                  />
+                  <p className="bc-form-hint">
+                    Kế hoạch cán bộ · Asia/Ho_Chi_Minh. Không tự ghi nhận rằng
+                    khách hàng đã đồng ý khung giờ này.
+                  </p>
+                </>
+              )}
+
+              {mode === "decision_feedback" && (
+                <>
+                  <p className="bc-form-callout">
+                    Đề xuất đang phản hồi: {actionCopy[w.next_action.kind].title} ·
+                    Quy tắc {w.next_action.recommendation_id}, không phải AI.
+                  </p>
+                  <label htmlFor="decision">Quyết định</label>
+                  <select
+                    id="decision"
+                    value={decision}
+                    onChange={(e) => setDecision(e.target.value)}
+                  >
+                    <option value="ACCEPT">Chấp nhận đề xuất</option>
+                    <option value="ADJUST">Điều chỉnh đề xuất</option>
+                    <option value="DECLINE">Không áp dụng</option>
+                  </select>
+                </>
+              )}
+
+              {mode === "reconcile" && (
+                <p className="bc-form-callout">
+                  Chỉ xác nhận khi Core mới nhất đã bao phủ payment/reversal và
+                  mọi nghĩa vụ. Không tự thay đổi số tiền.
+                </p>
+              )}
+
+              {mode === "wrapup" && (
+                <>
+                  <label htmlFor="outcome">Kết quả</label>
+                  <select
+                    id="outcome"
+                    value={outcome}
+                    onChange={(e) => setOutcome(e.target.value)}
+                  >
+                    <option value="BUSY_NO_ANSWER">Không nghe máy</option>
+                    <option value="REFUSED">Chưa thống nhất thanh toán</option>
+                    <option value="PTP_AGREED">Đồng ý cam kết PTP</option>
+                  </select>
+
+                  {outcome === "PTP_AGREED" && (
+                    <div className="bc-detail-grid">
+                      <div>
+                        <label htmlFor="ptp-loan">Khoản vay áp dụng</label>
+                        <select
+                          id="ptp-loan"
+                          value={ptpLoan || w.case.loan_id}
+                          onChange={(e) => setPtpLoan(e.target.value)}
+                        >
+                          {w.case_scope.exposures.map((l) => (
+                            <option key={l.loan_id} value={l.loan_id}>
+                              {l.loan_id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="ptp-amount">
+                          Số tiền cam kết (VND nguyên)
+                        </label>
+                        <input
+                          id="ptp-amount"
+                          type="number"
+                          min="1"
+                          required
+                          value={ptpAmount}
+                          onChange={(e) => setPtpAmount(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="ptp-date">
+                          Ngày hẹn · Hết ngày giờ Việt Nam
+                        </label>
+                        <input
+                          id="ptp-date"
+                          type="date"
+                          required
+                          value={ptpDate}
+                          onChange={(e) => setPtpDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <label htmlFor="reason">Lý do / nội dung ghi nhận</label>
+              <textarea
+                id="reason"
+                required
+                maxLength={2000}
+                rows={4}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+
+              <div className="bc-modal-foot">
+                <button
+                  type="submit"
+                  className="bc-button primary"
+                  disabled={!writable || busy || conflict || loading}
+                >
+                  {busy ? "Đang lưu..." : "Lưu vào hệ thống"}
+                </button>
+                <button
+                  type="button"
+                  className="bc-button secondary"
+                  onClick={() => setMode(null)}
+                >
+                  Hủy
+                </button>
+              </div>
+            </form>
         </section>
       )}
-      <nav className="bc-tabs" role="tablist" aria-label="Chi tiết hồ sơ">
-        {(["work", "ptp", "evidence"] as Section[]).map((s) => (
-          <button
-            key={s}
-            role="tab"
-            id={`tab-${s}`}
-            aria-controls={`panel-${s}`}
-            aria-selected={section === s}
-            onClick={() => setSection(s)}
-          >
-            {
-              {
-                work: "Tác nghiệp",
-                ptp: "PTP & thanh toán",
-                evidence: "EWS & bằng chứng",
-              }[s]
-            }
-          </button>
-        ))}
+
+      {/* 2. 10-Tab Navigation Bar */}
+      <nav
+        className="bc-horizontal-tabs"
+        role="tablist"
+        aria-label="Chi tiết hồ sơ"
+      >
+        {tabs.map((t) => {
+          const isSelected = section === t.key;
+          return (
+            <button
+              key={t.key}
+              role="tab"
+              id={`tab-${t.key}`}
+              aria-controls={`panel-${t.key}`}
+              aria-selected={isSelected}
+              aria-label={t.ariaName}
+              className={`bc-tab-item ${isSelected ? "active" : ""}`}
+              onClick={() => setSection(t.key)}
+            >
+              {t.title}
+            </button>
+          );
+        })}
       </nav>
-      <div className="bc-grid">
-        <div
-          className="bc-stack"
-          role="tabpanel"
-          id={`panel-${section}`}
-          aria-labelledby={`tab-${section}`}
-        >
-          {section === "work" && (
-            <>
-              <ExposureTable
-                scope={scope}
-                caseId={caseId}
-                customer={customer}
-              />
-              <PtpPaymentPanel
-                w={w}
-                compact
-                onDetails={() => setSection("ptp")}
-              />
-              <CaseTimeline w={w} />
-            </>
-          )}
-          {section === "ptp" && (
-            <>
-              <PtpPaymentPanel w={w} />
-              <section className="bc-panel">
-                <h2>Thao tác đối soát</h2>
-                <p className="bc-table-note">
-                  Không nhập payment giả hoặc sửa số dư từ giao diện.
-                </p>
-                <div className="bc-actions-row">
-                  <button
-                    className="bc-button"
-                    disabled={
-                      !writable ||
-                      busy ||
-                      loading ||
-                      conflict ||
-                      call !== "IDLE" ||
-                      !!mode
-                    }
-                    onClick={() => perform("balance_check", {})}
-                  >
-                    Đối soát số dư từ Core
-                  </button>
-                  <button
-                    className="bc-button"
-                    disabled={
-                      !writable ||
-                      busy ||
-                      conflict ||
-                      stale(w.case_scope, now) ||
-                      !w.case.contact_hold_reason ||
-                      !!mode ||
-                      call !== "IDLE"
-                    }
-                    onClick={() => open("reconcile")}
-                  >
-                    Xác nhận đã rà soát
-                  </button>
+
+      {/* 3. Tab Panels Container */}
+      <div className="bc-tab-content-area">
+        {/* Tab 1: Tổng quan (Main Dashboard with Left 72% + Right 28%) */}
+        {section === "work" && (
+          <div
+            className="bc-dashboard-layout"
+            role="tabpanel"
+            id="panel-work"
+            aria-labelledby="tab-work"
+          >
+            {/* Main Center Content (Widgets Grid) */}
+            <div className="bc-dashboard-main">
+              {/* Row 1: Financial Overview + Quick Risk Assessment */}
+              <div className="bc-row-duo">
+                <div className="bc-col-65">
+                  <ScopeSummary
+                    scope={scope}
+                    customer={customer}
+                    onEvidence={() => setSection("evidence")}
+                    onToggleScope={(c) => setCustomer(c)}
+                    caseScopeCount={w.case_scope.exposures.length}
+                    customerScopeCount={w.customer_scope.exposures.length}
+                  />
                 </div>
-              </section>
-              <CaseTimeline w={w} />
-            </>
-          )}
-          {section === "evidence" && (
+                <div className="bc-col-35">
+                  <QuickRiskAssessment persona={persona} />
+                </div>
+              </div>
+
+              {/* Row 2: Loan List + Debt Structure Donut */}
+              <div className="bc-row-duo">
+                <div className="bc-col-65">
+                  <ExposureTable
+                    scope={scope}
+                    caseId={caseId}
+                    customer={customer}
+                    onViewDetail={() => setSection("credit")}
+                  />
+                </div>
+                <div className="bc-col-35">
+                  <DebtStructureCard />
+                </div>
+              </div>
+
+              {/* Row 3: EWS Signals + 12-Month DPD Bar Chart */}
+              <div className="bc-row-duo">
+                <div className="bc-col-60">
+                  <EwsSignalsCard onAll={() => setSection("evidence")} />
+                </div>
+                <div className="bc-col-40">
+                  <DpdHistoryCard />
+                </div>
+              </div>
+
+              {/* Row 4: Recent PTP + Recent Interactions */}
+              <div className="bc-row-duo">
+                <div className="bc-col-55">
+                  <RecentPtpCard w={w} onAll={() => setSection("ptp")} />
+                </div>
+                <div className="bc-col-45">
+                  <RecentInteractionsCard
+                    w={w}
+                    onAll={() => setSection("interactions")}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Action Rail (Copilot / Action Cards) */}
+            <aside
+              className="bc-dashboard-rail"
+              aria-label="Hỗ trợ quyết định và tác nghiệp"
+            >
+              {/* Card 1: Next Action */}
+              <NextActionCard
+                actionTitle={copy.title}
+                activeSchedule={!!activeSchedule}
+                onSchedule={() => open("schedule_contact")}
+                onCall={handleCallIntent}
+                onFeedback={() => open("decision_feedback")}
+                disabled={
+                  busy ||
+                  loading ||
+                  conflict ||
+                  call !== "IDLE" ||
+                  isBlocked
+                }
+              />
+
+              {/* Card 2: 5-Point Guardrail */}
+              <GuardrailCard
+                canCheck={canCheck}
+                onCheck={handleCallIntent}
+              />
+
+              {/* Card 3: AI Recommendations */}
+              <AiRecommendationsCard
+                onAccept={() => open("decision_feedback")}
+                onDetail={() => setSection("evidence")}
+              />
+
+              {/* Card 4: Quick Notes Widget */}
+              <QuickNotes caseId={caseId} />
+            </aside>
+          </div>
+        )}
+
+        {/* Tab 2: Thông tin khách hàng */}
+        {section === "customer" && (
+          <div
+            role="tabpanel"
+            id="panel-customer"
+            aria-labelledby="tab-customer"
+          >
+            <CustomerInfoPanel w={w} />
+          </div>
+        )}
+
+        {/* Tab 3: Nghĩa vụ tín dụng */}
+        {section === "credit" && (
+          <div role="tabpanel" id="panel-credit" aria-labelledby="tab-credit">
+            <ExposureTable
+              scope={scope}
+              caseId={caseId}
+              customer={customer}
+            />
+          </div>
+        )}
+
+        {/* Tab 4: Case & xử lý */}
+        {section === "case" && (
+          <div role="tabpanel" id="panel-case" aria-labelledby="tab-case">
+            <section className="bc-panel">
+              <h2>Quy trình xử lý hồ sơ</h2>
+              <p>
+                Giai đoạn: <strong>{label(w.case.stage)}</strong>
+              </p>
+              <p>
+                Trạng thái: <strong>{label(w.case.lifecycle)}</strong>
+              </p>
+              {activeSchedule && (
+                <p>
+                  Lịch hẹn:{" "}
+                  <strong>{dateTime(activeSchedule.scheduled_at)}</strong> (
+                  {activeSchedule.reason})
+                </p>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* Tab 5: PTP & Thanh toán */}
+        {section === "ptp" && (
+          <div role="tabpanel" id="panel-ptp" aria-labelledby="tab-ptp">
+            <PtpPaymentPanel w={w} />
+            <section className="bc-panel">
+              <h2>Thao tác đối soát</h2>
+              <div className="bc-actions-row">
+                <button
+                  type="button"
+                  className="bc-button"
+                  disabled={
+                    !writable || busy || loading || conflict || call !== "IDLE"
+                  }
+                  onClick={() => perform("balance_check", {})}
+                >
+                  Đối soát số dư từ Core
+                </button>
+                <button
+                  type="button"
+                  className="bc-button"
+                  disabled={
+                    !writable ||
+                    busy ||
+                    conflict ||
+                    stale(w.case_scope, now) ||
+                    !w.case.contact_hold_reason ||
+                    call !== "IDLE"
+                  }
+                  onClick={() => open("reconcile")}
+                >
+                  Xác nhận đã rà soát
+                </button>
+              </div>
+            </section>
+            <CaseTimeline w={w} />
+          </div>
+        )}
+
+        {/* Tab 6: Lịch sử tương tác */}
+        {section === "interactions" && (
+          <div
+            role="tabpanel"
+            id="panel-interactions"
+            aria-labelledby="tab-interactions"
+          >
+            <CaseTimeline w={w} />
+          </div>
+        )}
+
+        {/* Tab 7: EWS & Rủi ro */}
+        {section === "evidence" && (
+          <div
+            role="tabpanel"
+            id="panel-evidence"
+            aria-labelledby="tab-evidence"
+          >
             <EvidencePanel
               w={w}
               scope={scope}
@@ -699,134 +845,52 @@ export function CaseWorkspacePage({
                 setPersonaError("");
                 try {
                   const p = await request<Persona>(`${base}/persona`);
-                  if (alive.current && generation === sequence.current) setPersona(p);
+                  if (alive.current && generation === sequence.current) {
+                    setPersona(p);
+                  }
                 } catch (e) {
-                  if (alive.current && generation === sequence.current) setPersonaError(errorText(e));
+                  if (alive.current && generation === sequence.current) {
+                    setPersonaError(errorText(e));
+                  }
                 }
               }}
             />
-          )}
-        </div>
-        <aside className="bc-stack bc-rail" aria-label="Hỗ trợ quyết định">
-          <section className="bc-panel">
-            <div className="bc-panel-head">
-              <h2>Hỗ trợ quyết định</h2>
-              <span className="bc-chip neutral">Theo quy tắc</span>
-            </div>
-            <p className="bc-aimain">{copy.title}</p>
-            <p>{copy.note}</p>
-            <button className="bc-link" onClick={() => setSection("evidence")}>
-              Nguồn & dữ liệu thiếu <ArrowUpRight />
-            </button>
-            <button
-              className="bc-button"
-              disabled={
-                !writable ||
-                busy ||
-                conflict ||
-                !!mode ||
-                call !== "IDLE" ||
-                loading
-              }
-              onClick={() => open("decision_feedback")}
-            >
-              Ghi nhận quyết định
-            </button>
-            <p className="bc-safety">
-              Phản hồi được lưu kèm đề xuất và phiên bản case, không phải kết
-              quả thanh toán.
-            </p>
-          </section>
-          <GuardrailPanel
-            reason={
-              w.case.lifecycle !== "OPEN"
-                ? label(w.case.lifecycle) + " · Không liên hệ"
-                : w.case.contact_hold_reason
-                ? label(w.case.contact_hold_reason)
-                : call === "CONNECTED"
-                  ? "Đang gọi mô phỏng"
-                  : action === "WAIT_SCHEDULE" ? "Chưa đến lịch liên hệ"
-                    : action === "BALANCE_CHECK" ? "Chưa đủ bằng chứng số dư" : "Chưa cấp quyền cho lần gọi mới"
-            }
-            details={
-              guardMessage ||
-              (guard?.evaluated_at
-                ? `${dateTime(guard.evaluated_at)} · ${guard.policy_version}`
-                : "")
-            }
-            canCheck={canCheck}
-            onCheck={startCall}
-          />
-          <section className="bc-panel">
-            <div className="bc-panel-head">
-              <h2>Lịch liên hệ</h2>
-              <CalendarClock />
-            </div>
-            {activeSchedule ? (
-              <>
-                <p>{dateTime(activeSchedule.scheduled_at)}</p>
-                <p>{activeSchedule.reason}</p>
-                <span className="bc-chip neutral">
-                  Kế hoạch · Chưa thực hiện
-                </span>
-              </>
-            ) : (
-              <p>Chưa có lịch đang mở.</p>
-            )}
-            <button
-              className="bc-button"
-              disabled={!canPlan || busy || conflict || !!mode || loading}
-              onClick={() => {
-                setWhen("");
-                open("schedule_contact");
-              }}
-            >
-              {activeSchedule ? "Điều chỉnh lịch" : "Lên lịch liên hệ"}
-            </button>
-            {activeSchedule && (
-              <button
-                className="bc-link"
-                disabled={
-                  !writable || busy || conflict || !!mode || call !== "IDLE"
-                }
-                onClick={() => open("cancel_schedule")}
-              >
-                Hủy lịch đã lưu
-              </button>
-            )}
-            <details>
-              <summary>Lịch sử lịch hẹn ({w.contact_schedules.length})</summary>
-              {w.contact_schedules.map((s) => (
-                <p key={s.schedule_id}>
-                  {dateTime(s.scheduled_at)} · {label(s.status)} · {s.reason}
-                </p>
-              ))}
-            </details>
-          </section>
-          <section className="bc-panel">
-            <h2>Quyết định đã lưu</h2>
-            {!w.decision_feedback.length && (
-              <p className="bc-table-note">Chưa có phản hồi được lưu.</p>
-            )}
-            {[...w.decision_feedback].reverse().map((f) => (
-              <details key={f.feedback_id}>
-                <summary>
-                  {label(f.decision)} · v{f.case_version}
-                </summary>
-                <p>
-                  {dateTime(f.created_at)} · {f.reason}
-                </p>
-              </details>
-            ))}
-          </section>
-        </aside>
+          </div>
+        )}
+
+        {/* Tab 8: Tài sản bảo đảm */}
+        {section === "collateral" && (
+          <div
+            role="tabpanel"
+            id="panel-collateral"
+            aria-labelledby="tab-collateral"
+          >
+            <CollateralPanel />
+          </div>
+        )}
+
+        {/* Tab 9: Tài liệu */}
+        {section === "documents" && (
+          <div
+            role="tabpanel"
+            id="panel-documents"
+            aria-labelledby="tab-documents"
+          >
+            <DocumentsPanel />
+          </div>
+        )}
+
+        {/* Tab 10: Khác */}
+        {section === "other" && (
+          <div role="tabpanel" id="panel-other" aria-labelledby="tab-other">
+            <section className="bc-panel">
+              <h2>Cấu hình & thông tin khác</h2>
+              <p>Mã phiên bản case: v{w.case.case_version}</p>
+              <p>Thời điểm đọc: {dateTime(w.read_at)}</p>
+            </section>
+          </div>
+        )}
       </div>
-      <footer className="bc-footer">
-        <span>
-          Case v{w.case.case_version} · {w.case.data_origin} · Asia/Ho_Chi_Minh
-        </span>
-        <span>EWS chưa kết nối · Không thực hiện cuộc gọi thật</span>
-      </footer>
-    </main>
+    </div>
   );
 }
