@@ -475,9 +475,78 @@
       font-family: var(--font-mono);
       font-size: 12px;
       color: #38bdf8;
-      overflow-x: auto;
-      max-height: 400px;
+    /* Backend Filter Chips */
+    .backend-filters-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 20px;
+      background: rgba(0, 0, 0, 0.25);
+      border-bottom: 1px solid var(--border-color);
+      align-items: center;
     }
+    .filter-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-right: 4px;
+    }
+    .filter-chip {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .filter-chip:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    .filter-chip.active {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(59, 130, 246, 0.5);
+    }
+    .filter-count {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+
+    /* Backend Tag Badges */
+    .backend-tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      margin-right: 4px;
+      margin-bottom: 2px;
+      letter-spacing: 0.02em;
+    }
+    .tag-core { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .tag-cti { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .tag-speech { background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3); }
+    .tag-los { background: rgba(236, 72, 153, 0.15); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+    .tag-cic { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .tag-gateway { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
+    .tag-messaging { background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); }
+    .tag-api { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
   </style>
 </head>
 <body>
@@ -560,9 +629,42 @@
           <span>Tất Cả Request Gần Nhất Được Bắt Qua W3C Distributed Tracing</span>
         </div>
         <div style="display: flex; gap: 8px;">
-          <input type="text" id="filter-input" placeholder="Tìm theo URL hoặc Case ID..." onkeyup="filterTraces()" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px; width: 240px;">
+          <input type="text" id="filter-input" placeholder="Tìm theo URL, Case ID hoặc Trace ID..." onkeyup="filterTraces()" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px; width: 260px;">
         </div>
       </div>
+
+      <!-- Bộ lọc theo từng Backend Service -->
+      <div class="backend-filters-bar">
+        <span class="filter-label">Lọc Backend:</span>
+        <div class="filter-chip active" id="chip-ALL" onclick="selectBackendFilter('ALL')">
+          <span>Tất Cả</span> <span class="filter-count" id="count-ALL">0</span>
+        </div>
+        <div class="filter-chip" id="chip-core" onclick="selectBackendFilter('core')">
+          <span>🏦 Core Banking</span> <span class="filter-count" id="count-core">0</span>
+        </div>
+        <div class="filter-chip" id="chip-cti" onclick="selectBackendFilter('cti')">
+          <span>📞 CTI Telephony</span> <span class="filter-count" id="count-cti">0</span>
+        </div>
+        <div class="filter-chip" id="chip-speech" onclick="selectBackendFilter('speech')">
+          <span>🎙️ Speech AI</span> <span class="filter-count" id="count-speech">0</span>
+        </div>
+        <div class="filter-chip" id="chip-gateway" onclick="selectBackendFilter('gateway')">
+          <span>🌐 API Gateway (:8090)</span> <span class="filter-count" id="count-gateway">0</span>
+        </div>
+        <div class="filter-chip" id="chip-los" onclick="selectBackendFilter('los')">
+          <span>📋 LOS Origination</span> <span class="filter-count" id="count-los">0</span>
+        </div>
+        <div class="filter-chip" id="chip-cic" onclick="selectBackendFilter('cic')">
+          <span>🏛️ CIC Credit</span> <span class="filter-count" id="count-cic">0</span>
+        </div>
+        <div class="filter-chip" id="chip-messaging" onclick="selectBackendFilter('messaging')">
+          <span>💬 Messaging</span> <span class="filter-count" id="count-messaging">0</span>
+        </div>
+        <div class="filter-chip" id="chip-api" onclick="selectBackendFilter('api')">
+          <span>⚙️ Core API Nội Bộ</span> <span class="filter-count" id="count-api">0</span>
+        </div>
+      </div>
+
       <div class="table-responsive">
         <table>
           <thead>
@@ -570,6 +672,7 @@
               <th>Thời Điểm</th>
               <th>Phương Thức</th>
               <th>Endpoint / Path</th>
+              <th>Hệ Thống Liên Quan</th>
               <th>Status</th>
               <th>Tổng Thời Gian</th>
               <th>Số Spans</th>
@@ -578,7 +681,7 @@
             </tr>
           </thead>
           <tbody id="traces-tbody">
-            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">Đang tải dữ liệu telemetry...</td></tr>
+            <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 32px;">Đang tải dữ liệu telemetry...</td></tr>
           </tbody>
         </table>
       </div>
@@ -671,6 +774,53 @@ docker compose -f deploy/telemetry/docker-compose.telemetry.yml up -d
     let autoRefresh = true;
     let refreshTimer = null;
     let cachedTraces = [];
+    let activeBackendFilter = 'ALL';
+
+    const BACKEND_METADATA = {
+      'core': { name: 'Core Banking', class: 'tag-core', icon: '🏦' },
+      'cti': { name: 'CTI Telephony', class: 'tag-cti', icon: '📞' },
+      'speech': { name: 'Speech AI', class: 'tag-speech', icon: '🎙️' },
+      'gateway': { name: 'Gateway :8090', class: 'tag-gateway', icon: '🌐' },
+      'los': { name: 'LOS Origination', class: 'tag-los', icon: '📋' },
+      'cic': { name: 'CIC Credit', class: 'tag-cic', icon: '🏛️' },
+      'messaging': { name: 'Messaging', class: 'tag-messaging', icon: '💬' },
+      'api': { name: 'Core API', class: 'tag-api', icon: '⚙️' },
+    };
+
+    function getTraceBackends(trace) {
+      const backends = new Set();
+      for (const s of (trace.spans || [])) {
+        const svc = (s.service_name || '').toLowerCase();
+        const name = (s.name || '').toLowerCase();
+        const target = ((s.attributes && s.attributes['target.service']) || '').toLowerCase();
+
+        if (svc.includes('core-banking') || name.includes('core') || target === 'core' || name.includes('balance')) {
+          backends.add('core');
+        }
+        if (svc.includes('cti') || name.includes('call-originate') || target === 'cti' || name.includes('cti')) {
+          backends.add('cti');
+        }
+        if (svc.includes('speech') || name.includes('call-transcribe') || target === 'speech-ai' || name.includes('speech')) {
+          backends.add('speech');
+        }
+        if (svc.includes('los') || target === 'los' || name.includes('los') || name.includes('parties')) {
+          backends.add('los');
+        }
+        if (svc.includes('cic') || target === 'cic' || name.includes('cic') || name.includes('reports')) {
+          backends.add('cic');
+        }
+        if (svc.includes('messaging') || target === 'messaging' || name.includes('sms') || name.includes('zns')) {
+          backends.add('messaging');
+        }
+        if (svc.includes('gateway')) {
+          backends.add('gateway');
+        }
+      }
+      if (backends.size === 0) {
+        backends.add('api');
+      }
+      return Array.from(backends);
+    }
 
     async function fetchTelemetry() {
       try {
@@ -683,7 +833,8 @@ docker compose -f deploy/telemetry/docker-compose.telemetry.yml up -d
           const stats = await statsRes.json();
           cachedTraces = traces;
           renderStats(stats);
-          renderTraces(traces);
+          updateFilterCounts(traces);
+          filterTraces();
         }
       } catch (err) {
         console.error("Lỗi tải telemetry:", err);
@@ -699,10 +850,49 @@ docker compose -f deploy/telemetry/docker-compose.telemetry.yml up -d
       document.getElementById('kpi-error-count').textContent = `${stats.total_errors} lỗi (HTTP >= 400)`;
     }
 
+    function updateFilterCounts(traces) {
+      const counts = { ALL: traces.length, core: 0, cti: 0, speech: 0, gateway: 0, los: 0, cic: 0, messaging: 0, api: 0 };
+      for (const t of traces) {
+        const bks = getTraceBackends(t);
+        for (const b of bks) {
+          if (counts[b] !== undefined) counts[b]++;
+        }
+      }
+      for (const [key, cnt] of Object.entries(counts)) {
+        const el = document.getElementById(`count-${key}`);
+        if (el) el.textContent = cnt;
+      }
+    }
+
+    function selectBackendFilter(backendKey) {
+      activeBackendFilter = backendKey;
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      const activeChip = document.getElementById(`chip-${backendKey}`);
+      if (activeChip) activeChip.classList.add('active');
+      filterTraces();
+    }
+
+    function filterTraces() {
+      const q = document.getElementById('filter-input').value.toLowerCase();
+      const filtered = cachedTraces.filter(t => {
+        const backends = getTraceBackends(t);
+        const matchBackend = (activeBackendFilter === 'ALL') || backends.includes(activeBackendFilter);
+
+        const matchQuery = !q || (
+          t.root_name.toLowerCase().includes(q) || 
+          t.trace_id.toLowerCase().includes(q) ||
+          JSON.stringify(t.attributes).toLowerCase().includes(q)
+        );
+
+        return matchBackend && matchQuery;
+      });
+      renderTraces(filtered);
+    }
+
     function renderTraces(traces) {
       const tbody = document.getElementById('traces-tbody');
       if (!traces || traces.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">Chưa có request nào phát sinh. Hãy thao tác trên UI http://localhost:3002 để bắt request!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 32px;">Không tìm thấy request nào khớp với bộ lọc.</td></tr>';
         return;
       }
 
@@ -712,12 +902,19 @@ docker compose -f deploy/telemetry/docker-compose.telemetry.yml up -d
         const path = parts.slice(1).join(' ') || t.root_name;
         const statusCls = t.status_code >= 500 ? 'status-5xx' : (t.status_code >= 400 ? 'status-4xx' : 'status-2xx');
         const timeStr = new Date(t.created_at).toLocaleTimeString();
+        const backends = getTraceBackends(t);
+
+        const backendTagsHtml = backends.map(b => {
+          const meta = BACKEND_METADATA[b] || { name: b, class: 'tag-api', icon: '🔹' };
+          return `<span class="backend-tag ${meta.class}" onclick="event.stopPropagation(); selectBackendFilter('${b}')" title="Nhấn để lọc theo ${meta.name}">${meta.icon} ${meta.name}</span>`;
+        }).join('');
 
         return `
           <tr onclick="showTraceDetail('${t.trace_id}')">
             <td style="font-family: var(--font-mono); font-size: 11px;">${timeStr}</td>
             <td><span class="method-badge method-${method}">${method}</span></td>
             <td style="color: #fff; font-weight: 500;">${escapeHtml(path)}</td>
+            <td>${backendTagsHtml}</td>
             <td><span class="status-badge ${statusCls}">${t.status_code}</span></td>
             <td style="font-family: var(--font-mono); font-weight: 600; color: #fff;">${t.duration_ms} ms</td>
             <td><span class="badge">${t.span_count}</span></td>
@@ -726,16 +923,6 @@ docker compose -f deploy/telemetry/docker-compose.telemetry.yml up -d
           </tr>
         `;
       }).join('');
-    }
-
-    function filterTraces() {
-      const q = document.getElementById('filter-input').value.toLowerCase();
-      const filtered = cachedTraces.filter(t => 
-        t.root_name.toLowerCase().includes(q) || 
-        t.trace_id.toLowerCase().includes(q) ||
-        JSON.stringify(t.attributes).toLowerCase().includes(q)
-      );
-      renderTraces(filtered);
     }
 
     function showTraceDetail(traceId) {
