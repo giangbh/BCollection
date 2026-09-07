@@ -641,7 +641,7 @@ export function CaseWorkspacePage({
             <div className="bc-dashboard-main">
               {/* Row 1: Financial Overview + Quick Risk Assessment */}
               <div className="bc-row-duo">
-                <div className="bc-col-65">
+                <div className="bc-col-58">
                   <ScopeSummary
                     scope={scope}
                     customer={customer}
@@ -651,14 +651,14 @@ export function CaseWorkspacePage({
                     customerScopeCount={w.customer_scope.exposures.length}
                   />
                 </div>
-                <div className="bc-col-35">
+                <div className="bc-col-42">
                   <QuickRiskAssessment persona={persona} />
                 </div>
               </div>
 
               {/* Row 2: Loan List + Debt Structure Donut */}
               <div className="bc-row-duo">
-                <div className="bc-col-60">
+                <div className="bc-col-58">
                   <ExposureTable
                     scope={scope}
                     caseId={caseId}
@@ -666,27 +666,27 @@ export function CaseWorkspacePage({
                     onViewDetail={() => setSection("credit")}
                   />
                 </div>
-                <div className="bc-col-40">
+                <div className="bc-col-42">
                   <DebtStructureCard />
                 </div>
               </div>
 
               {/* Row 3: EWS Signals + 12-Month DPD Bar Chart */}
               <div className="bc-row-duo">
-                <div className="bc-col-60">
+                <div className="bc-col-58">
                   <EwsSignalsCard onAll={() => setSection("evidence")} />
                 </div>
-                <div className="bc-col-40">
+                <div className="bc-col-42">
                   <DpdHistoryCard />
                 </div>
               </div>
 
               {/* Row 4: Recent PTP + Recent Interactions */}
               <div className="bc-row-duo">
-                <div className="bc-col-55">
+                <div className="bc-col-58">
                   <RecentPtpCard w={w} onAll={() => setSection("ptp")} />
                 </div>
-                <div className="bc-col-45">
+                <div className="bc-col-42">
                   <RecentInteractionsCard
                     w={w}
                     onAll={() => setSection("interactions")}

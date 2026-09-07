@@ -1601,6 +1601,8 @@
   gap: 16px;
 }
 
+#bc-workspace .bc-col-58 { flex: 0 0 calc(58% - 8px); min-width: 0; }
+#bc-workspace .bc-col-42 { flex: 0 0 calc(42% - 8px); min-width: 0; }
 #bc-workspace .bc-col-65 { flex: 0 0 calc(65% - 8px); min-width: 0; }
 #bc-workspace .bc-col-35 { flex: 0 0 calc(35% - 8px); min-width: 0; }
 #bc-workspace .bc-col-60 { flex: 0 0 calc(60% - 8px); min-width: 0; }
@@ -1783,15 +1785,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 10px;
 }
 
 #bc-workspace .bc-donut-legend-title {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 #bc-workspace .bc-donut-dot {
@@ -1813,6 +1814,7 @@
   color: var(--bc-ink);
   white-space: nowrap;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Bar Chart */
@@ -2590,6 +2592,8 @@ html, body, #root {
   #bc-workspace .bc-row-duo {
     flex-direction: column;
   }
+  #bc-workspace .bc-col-58,
+  #bc-workspace .bc-col-42,
   #bc-workspace .bc-col-65,
   #bc-workspace .bc-col-35,
   #bc-workspace .bc-col-60,
