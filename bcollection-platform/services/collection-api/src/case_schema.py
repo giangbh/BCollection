@@ -50,6 +50,8 @@ def migrate(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_case ON payment_ledger(case_id,loan_id,occurred_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_ptp ON payment_ledger(ptp_id)")
     backfill(conn)
+    from workspace import migrate_workspace
+    migrate_workspace(conn)
 
 
 def backfill(conn):

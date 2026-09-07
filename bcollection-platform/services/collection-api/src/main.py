@@ -202,6 +202,7 @@ def get_similar_cases(case_id: str, top_k: int = 5):
 class CallIntentRequest(BaseModel):
     channel: str = "VOICE"
     target_party_id: str
+    expected_version: Optional[int] = Field(default=None, ge=0, strict=True)
 
 
 @app.post("/api/cases/{case_id}/call-intent")
@@ -216,6 +217,16 @@ def evaluate_call_intent(case_id: str, payload: CallIntentRequest):
 
     if case["lifecycle"] != "OPEN" or case["contact_hold_reason"]:
         raise HTTPException(409, "Case is closed or contact is held for reconciliation")
+    if payload.expected_version is not None and payload.expected_version != case['case_version']:
+        raise HTTPException(409, 'Case version changed; reload before contact')
+    if payload.channel != 'VOICE' or payload.target_party_id != case['debtor_cif']:
+        raise HTTPException(422, 'Workspace supports the debtor VOICE contact only')
+    from workspace import read_workspace
+    from bc_domain.case_rules import instant
+    from datetime import timezone
+    schedule = next((s for s in read_workspace(case_id)['contact_schedules'] if s['status'] == 'PLANNED'), None)
+    if schedule and instant(schedule['scheduled_at']) > datetime.now(timezone.utc):
+        return {'is_allowed': False, 'blocking_reason': 'NOT_BEFORE_SCHEDULE', 'scheduled_at': schedule['scheduled_at']}
     # Fail closed across every exposure, including partial recent payments.
     state = financial_state(case_id)
     try:
@@ -240,6 +251,9 @@ def evaluate_call_intent(case_id: str, payload: CallIntentRequest):
     )
 
     eval_res = orchestrator.evaluate(eval_req)
+    latest_case = get_case_by_id(case_id)
+    if latest_case['case_version'] != case['case_version']:
+        raise HTTPException(409, 'Case changed during checks; no contact authorized')
 
     return {
         "is_allowed": eval_res.decision in ("ALLOW", "ALLOW_WITH_CONDITIONS"),
@@ -292,6 +306,24 @@ def get_case_history_api(case_id: str):
     return get_case_history(case_id)
 
 
+@app.get('/api/cases/{case_id}/workspace')
+def get_workspace(case_id: str):
+    from workspace import read_workspace
+    try:
+        return read_workspace(case_id)
+    except CaseNotFound:
+        raise HTTPException(404, 'Case not found')
+
+
+@app.get('/api/customers/{cif}/exposures')
+def get_customer_exposures(cif: str):
+    from workspace import read_customer
+    try:
+        return read_customer(cif)
+    except CaseNotFound:
+        raise HTTPException(404, 'Customer not found in B.Collection')
+
+
 @app.get("/api/cases/{case_id}/financial-state")
 def financial_state(case_id: str):
     case = get_case_by_id(case_id)
@@ -337,7 +369,7 @@ class FinancialCommandRequest(CommandRequest):
 
 @app.post("/api/cases/{case_id}/commands/{kind}")
 def financial_command(case_id: str, kind: str, request: FinancialCommandRequest):
-    if kind not in {"balance", "payment", "observe_ptp", "link_exposure", "reconcile"}:
+    if kind not in {"balance", "payment", "observe_ptp", "link_exposure", "reconcile", "schedule_contact", "cancel_schedule", "decision_feedback"}:
         raise HTTPException(422, "Unsupported financial command")
     return run_command(case_id, request, kind, request.payload)
 

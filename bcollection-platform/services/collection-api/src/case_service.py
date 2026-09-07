@@ -53,6 +53,17 @@ class CaseService:
                 raise CaseConflict(f"Stale case_version; current={c['case_version']}")
             now = instant(self.clock())
             before = (c["lifecycle"], c["resolution"])
+            if kind in {"schedule_contact", "cancel_schedule", "decision_feedback"}:
+                from workspace import apply_command
+                record_id = apply_command(conn, c, kind, payload, now)
+                version = c['case_version'] + 1
+                # Metadata commands never rewrite balances, lifecycle or legacy PTP projections.
+                conn.execute('UPDATE cases SET case_version=?,updated_at=? WHERE case_id=?', (version, now.isoformat(), case_id))
+                conn.execute('INSERT INTO case_transition_log VALUES(?,?,?,?,?,?,?,?,?,?)', (str(uuid4()), case_id, command_id, c['lifecycle'], c['lifecycle'], c['resolution'], c['resolution'], kind + ':' + payload['reason'].strip(), version, now.isoformat()))
+                result = {'case_id': case_id, 'case_version': version, 'record_id': record_id, 'committed': True, 'replayed': False}
+                conn.execute('INSERT INTO case_commands VALUES(?,?,?,?)', (case_id, command_id, fingerprint, json.dumps(result)))
+                conn.commit()
+                return result
             if kind == "wrapup":
                 self._wrapup(conn, c, payload, now)
             elif kind in {"balance", "balance_check"}:
