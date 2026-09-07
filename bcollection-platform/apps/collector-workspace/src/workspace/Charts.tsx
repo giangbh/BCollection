@@ -4,6 +4,8 @@ import React from "react";
  * Donut Chart for Debt Structure
  */
 export function DonutChart({
+  totalValue,
+  totalUnit,
   totalLabel = "15,2 tỷ VND",
   items = [
     { label: "Trong hạn", amount: "14,69 tỷ", percent: 96.7, color: "#10B981" },
@@ -11,11 +13,15 @@ export function DonutChart({
     { label: "Khác", amount: "0,51 tỷ", percent: 3.2, color: "#94A3B8" },
   ],
 }: {
+  totalValue?: string;
+  totalUnit?: string;
   totalLabel?: string;
   items?: { label: string; amount: string; percent: number; color: string }[];
 }) {
-  const size = 160;
-  const strokeWidth = 24;
+  const displayVal = totalValue || totalLabel.split(" ")[0] || "15,2";
+  const displayUnit = totalUnit || totalLabel.slice(displayVal.length).trim() || "tỷ VND";
+  const size = 130;
+  const strokeWidth = 16;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
@@ -29,7 +35,7 @@ export function DonutChart({
           height={size}
           viewBox={`0 0 ${size} ${size}`}
           className="bc-donut-svg"
-          aria-label={`Biểu đồ cấu trúc dư nợ, tổng ${totalLabel}`}
+          aria-label={`Biểu đồ cấu trúc dư nợ, tổng ${totalValue} ${totalUnit}`}
         >
           {items.map((item, idx) => {
             const strokeDasharray = `${(item.percent / 100) * circumference} ${circumference}`;
@@ -47,25 +53,28 @@ export function DonutChart({
                 strokeWidth={strokeWidth}
                 strokeDasharray={strokeDasharray}
                 strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
+                strokeLinecap="butt"
                 transform={`rotate(-90 ${size / 2} ${size / 2})`}
               />
             );
           })}
         </svg>
         <div className="bc-donut-center">
-          <div className="bc-donut-value">{totalLabel}</div>
+          <div className="bc-donut-value">{displayVal}</div>
+          <div className="bc-donut-unit">{displayUnit}</div>
         </div>
       </div>
       <div className="bc-donut-legend">
         {items.map((item, idx) => (
           <div key={idx} className="bc-donut-legend-row">
-            <span
-              className="bc-donut-dot"
-              style={{ backgroundColor: item.color }}
-              aria-hidden="true"
-            />
-            <span className="bc-donut-legend-name">{item.label}</span>
+            <div className="bc-donut-legend-title">
+              <span
+                className="bc-donut-dot"
+                style={{ backgroundColor: item.color }}
+                aria-hidden="true"
+              />
+              <span className="bc-donut-legend-name">{item.label}</span>
+            </div>
             <span className="bc-donut-legend-val">
               {item.amount} ({item.percent.toFixed(1).replace(".", ",")}%)
             </span>
@@ -230,7 +239,7 @@ export function GaugeRisk({
   ptpRisk?: string;
 }) {
   const size = 96;
-  const strokeWidth = 10;
+  const strokeWidth = 8;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const percent = Math.min(100, Math.max(0, (score / maxScore) * 100));
@@ -282,19 +291,19 @@ export function GaugeRisk({
 
       <div className="bc-gauge-metrics">
         <div className="bc-gauge-metric-item">
-          <span>Xu hướng</span>
+          <span className="bc-gauge-metric-name">Xu hướng</span>
           <strong className="bc-gauge-trend-up">▲ {trend}</strong>
         </div>
         <div className="bc-gauge-metric-item">
-          <span>Khả năng trả nợ</span>
+          <span className="bc-gauge-metric-name">Khả năng trả nợ</span>
           <strong className="bc-gauge-val-high">{repayAbility}</strong>
         </div>
         <div className="bc-gauge-metric-item">
-          <span>Mức độ hợp tác</span>
+          <span className="bc-gauge-metric-name">Mức độ hợp tác</span>
           <strong className="bc-gauge-val-mid">{coopLevel}</strong>
         </div>
         <div className="bc-gauge-metric-item">
-          <span>Rủi ro phá PTP</span>
+          <span className="bc-gauge-metric-name">Rủi ro phá PTP</span>
           <strong className="bc-gauge-val-good">{ptpRisk}</strong>
         </div>
       </div>

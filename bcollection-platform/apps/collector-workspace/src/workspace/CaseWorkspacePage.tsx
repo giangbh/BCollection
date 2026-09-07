@@ -658,7 +658,7 @@ export function CaseWorkspacePage({
 
               {/* Row 2: Loan List + Debt Structure Donut */}
               <div className="bc-row-duo">
-                <div className="bc-col-65">
+                <div className="bc-col-60">
                   <ExposureTable
                     scope={scope}
                     caseId={caseId}
@@ -666,7 +666,7 @@ export function CaseWorkspacePage({
                     onViewDetail={() => setSection("credit")}
                   />
                 </div>
-                <div className="bc-col-35">
+                <div className="bc-col-40">
                   <DebtStructureCard />
                 </div>
               </div>

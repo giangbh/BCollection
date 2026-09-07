@@ -72,7 +72,7 @@
   font-size: 12px;
   color: var(--bc-muted);
 }
-#bc-workspace svg {
+#bc-workspace svg:not(.bc-donut-svg):not(.bc-gauge-svg):not(.bc-barchart-svg) {
   width: 17px;
   height: 17px;
   flex-shrink: 0;
@@ -1601,12 +1601,12 @@
   gap: 16px;
 }
 
-#bc-workspace .bc-col-65 { flex: 0 0 calc(65% - 8px); }
-#bc-workspace .bc-col-35 { flex: 0 0 calc(35% - 8px); }
-#bc-workspace .bc-col-60 { flex: 0 0 calc(60% - 8px); }
-#bc-workspace .bc-col-40 { flex: 0 0 calc(40% - 8px); }
-#bc-workspace .bc-col-55 { flex: 0 0 calc(55% - 8px); }
-#bc-workspace .bc-col-45 { flex: 0 0 calc(45% - 8px); }
+#bc-workspace .bc-col-65 { flex: 0 0 calc(65% - 8px); min-width: 0; }
+#bc-workspace .bc-col-35 { flex: 0 0 calc(35% - 8px); min-width: 0; }
+#bc-workspace .bc-col-60 { flex: 0 0 calc(60% - 8px); min-width: 0; }
+#bc-workspace .bc-col-40 { flex: 0 0 calc(40% - 8px); min-width: 0; }
+#bc-workspace .bc-col-55 { flex: 0 0 calc(55% - 8px); min-width: 0; }
+#bc-workspace .bc-col-45 { flex: 0 0 calc(45% - 8px); min-width: 0; }
 
 /* Widget Card */
 #bc-workspace .bc-widget-card {
@@ -1618,6 +1618,8 @@
   flex-direction: column;
   gap: 12px;
   height: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 #bc-workspace .bc-widget-head {
@@ -1728,43 +1730,68 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 6px 0;
+  padding: 4px 0;
+  width: 100%;
 }
 
 #bc-workspace .bc-donut-wrap {
   position: relative;
-  width: 140px;
-  height: 140px;
+  width: 130px;
+  height: 130px;
   flex-shrink: 0;
+}
+
+#bc-workspace svg.bc-donut-svg {
+  width: 130px !important;
+  height: 130px !important;
+  display: block;
 }
 
 #bc-workspace .bc-donut-center {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
+  pointer-events: none;
 }
 
 #bc-workspace .bc-donut-value {
-  font-size: 13px;
-  font-weight: 750;
+  font-size: 16px;
+  font-weight: 850;
   color: var(--bc-ink);
+  line-height: 1.1;
+}
+
+#bc-workspace .bc-donut-unit {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bc-muted);
 }
 
 #bc-workspace .bc-donut-legend {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
-  font-size: 12px;
+  min-width: 0;
 }
 
 #bc-workspace .bc-donut-legend-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+#bc-workspace .bc-donut-legend-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 #bc-workspace .bc-donut-dot {
@@ -1775,13 +1802,17 @@
 }
 
 #bc-workspace .bc-donut-legend-name {
+  font-size: 12px;
   color: var(--bc-muted);
-  flex: 1;
+  white-space: nowrap;
 }
 
 #bc-workspace .bc-donut-legend-val {
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--bc-ink);
+  white-space: nowrap;
+  text-align: right;
 }
 
 /* Bar Chart */
@@ -1838,38 +1869,49 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  height: 100%;
 }
 
 #bc-workspace .bc-gauge-left {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 #bc-workspace .bc-gauge-circle-wrap {
   position: relative;
-  width: 90px;
-  height: 90px;
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+}
+
+#bc-workspace svg.bc-gauge-svg {
+  width: 96px !important;
+  height: 96px !important;
+  display: block;
 }
 
 #bc-workspace .bc-gauge-center {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
-  padding-top: 32px;
+  pointer-events: none;
 }
 
 #bc-workspace .bc-gauge-score {
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 850;
   color: var(--bc-teal);
+  line-height: 1;
 }
 
 #bc-workspace .bc-gauge-max {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--bc-muted);
 }
 
@@ -1878,30 +1920,38 @@
 }
 
 #bc-workspace .bc-gauge-label {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--bc-muted);
   display: block;
+  margin-bottom: 2px;
 }
 
 #bc-workspace .bc-gauge-risk-val {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 750;
   color: #F97316;
 }
 
 #bc-workspace .bc-gauge-metrics {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   flex: 1;
+  min-width: 0;
   font-size: 12px;
 }
 
 #bc-workspace .bc-gauge-metric-item {
   display: flex;
   justify-content: space-between;
-  padding: 2px 0;
+  align-items: center;
+  padding: 3px 0;
   border-bottom: 1px dashed var(--bc-line);
+}
+
+#bc-workspace .bc-gauge-metric-name {
+  color: var(--bc-muted);
+  font-size: 12px;
 }
 
 #bc-workspace .bc-gauge-trend-up {
