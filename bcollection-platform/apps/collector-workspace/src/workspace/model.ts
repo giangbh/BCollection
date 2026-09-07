@@ -33,6 +33,7 @@ const names: Record<string, string> = {
   schedule_contact: "Lưu lịch liên hệ",
   cancel_schedule: "Hủy lịch liên hệ",
   decision_feedback: "Phản hồi đề xuất",
+  add_note: "Lưu ghi chú",
   reconcile: "Xác nhận rà soát",
   wrapup: "Ghi nhận kết quả tương tác",
   OPEN: "Đang xử lý",

@@ -21,6 +21,7 @@ export interface CaseRecord {
   contact_hold_reason: string | null;
   case_version: number;
   data_origin: string;
+  created_at?: string;
 }
 export interface Exposure {
   loan_id: string;
@@ -125,7 +126,18 @@ export interface Workspace {
   decision_feedback: Feedback[];
   case_interactions: Interaction[];
   case_transition_log: Transition[];
-  ews: { status: string; signals: unknown[] };
+  ews: { status: string; signals: EwsSignal[] };
+  customer_profile?: CustomerProfile | null;
+  customer_cases?: CustomerCase[];
+  case_notes?: CaseNote[];
+  dpd_history?: { case: DpdHistory; customer: DpdHistory };
+  policy_handoffs?: PolicyHandoff[];
+  outcome_feedback?: {
+    status: string;
+    causal_attribution: boolean;
+    links: OutcomeLink[];
+  };
+  capabilities?: Record<string, string>;
 }
 export interface CommandResult {
   case_id: string;
@@ -150,4 +162,93 @@ export interface Persona {
   };
   recommended_playbook?: unknown;
 }
-export type Section = "work" | "ptp" | "evidence";
+export interface CustomerProfile {
+  debtor_cif: string;
+  party_type: "INDIVIDUAL" | "ORGANIZATION";
+  legal_name: string;
+  tax_id: string | null;
+  industry: string | null;
+  region: string | null;
+  rm_name: string | null;
+  source: string;
+  source_as_of: string;
+  data_origin: string;
+}
+export interface CustomerCase {
+  case_id: string;
+  lifecycle: string;
+  stage: string;
+  resolution: string | null;
+  created_at: string;
+  case_version: number;
+}
+export interface CaseNote {
+  note_id: string;
+  case_id: string;
+  debtor_cif: string;
+  body: string;
+  author: string;
+  created_at: string;
+  data_origin: string;
+}
+export interface DpdHistory {
+  status: string;
+  definition: string;
+  points: {
+    month: string;
+    max_dpd: number | null;
+    average_dpd: number | null;
+    observed_loans: number;
+    scope_loans: number;
+    oldest_as_of: string | null;
+    newest_as_of: string | null;
+  }[];
+}
+export interface EwsSignal {
+  signal_id: string;
+  debtor_cif: string;
+  title: string;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  verification: string;
+  source: string;
+  occurred_at: string;
+  data_origin: string;
+}
+export interface PolicyHandoff {
+  handoff_id: string;
+  case_id: string;
+  signal_id: string;
+  policy_version: string;
+  decision: string;
+  reason: string;
+  occurred_at: string;
+  data_origin: string;
+}
+export interface OutcomeLink {
+  interaction_id: string;
+  feedback_id: string;
+  ptp_id: string | null;
+  outcome: string;
+  created_at: string;
+  ptp_status: string | null;
+  amount_vnd: number | null;
+  paid_vnd: number | null;
+  on_time_vnd: number | null;
+  observed_through: string | null;
+  payments: Pick<
+    Payment,
+    "event_id" | "kind" | "amount_vnd" | "reverses_event_id" | "occurred_at"
+  >[];
+}
+export const sections = {
+  work: "Tổng quan",
+  customer: "Thông tin khách hàng",
+  loans: "Nghĩa vụ tín dụng",
+  treatment: "Case & xử lý",
+  ptp: "PTP & thanh toán",
+  interactions: "Lịch sử tương tác",
+  evidence: "EWS & rủi ro",
+  collateral: "Tài sản bảo đảm",
+  documents: "Tài liệu",
+} as const;
+export type Section = keyof typeof sections;

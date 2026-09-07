@@ -3,6 +3,7 @@ import { ArrowRight, Search } from "lucide-react";
 import { request, errorText } from "./api";
 import { label, mask, money } from "./model";
 import type { CaseRecord } from "./types";
+import { normalizedSearch } from "./customerModel";
 
 export function CaseQueuePage({
   onSelect,
@@ -35,8 +36,8 @@ export function CaseQueuePage({
   const filtered = useMemo(
     () =>
       cases.filter((c) =>
-        [c.case_id, c.full_name, c.debtor_cif, c.phone_e164].some((v) =>
-          v.toLocaleLowerCase("vi").includes(query.toLocaleLowerCase("vi")),
+        [c.case_id, c.full_name, c.debtor_cif, c.phone_e164, c.loan_id].some(
+          (v) => normalizedSearch(v).includes(normalizedSearch(query)),
         ),
       ),
     [cases, query],

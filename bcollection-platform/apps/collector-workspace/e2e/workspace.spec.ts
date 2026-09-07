@@ -19,6 +19,7 @@ function fixture(id = "C1") {
     contact_hold_reason: null,
     case_version: 0,
     data_origin: "SYNTHETIC",
+    created_at: "2026-08-15T08:00:00+07:00",
   };
   const exposures = [500000000, 200000000].map((principal, i) => ({
     loan_id: `L${i + 1}`,
@@ -96,7 +97,9 @@ async function setup(
     lostResponse?: boolean;
   } = {},
 ) {
-  const w = fixture();
+  const w: any = fixture();
+  w.customer_cases = [w.case, fixture("C2").case];
+  w.case_notes = [];
   if (opts.closed) {
     w.case.lifecycle = "CLOSED";
     w.next_action.kind = "VIEW_RESOLUTION";
@@ -164,6 +167,16 @@ async function setup(
               created_at: new Date().toISOString(),
             },
           ],
+        });
+      if (path.endsWith("add_note"))
+        w.case_notes.unshift({
+          note_id: body.command_id,
+          case_id: "C1",
+          debtor_cif: "D1",
+          body: body.payload.reason,
+          author: "Demo collector (unauthenticated)",
+          created_at: new Date().toISOString(),
+          data_origin: "SYNTHETIC",
         });
       w.case.case_version++;
       const result = {
@@ -306,9 +319,7 @@ test("feedback persists without invented EWS evidence", async ({ page }) => {
     .click();
   await page.reload();
   await expect(page.getByText("Không áp dụng · v0")).toBeVisible();
-  await page
-    .getByRole("tab", { name: "EWS & bằng chứng", exact: true })
-    .click();
+  await page.getByRole("tab", { name: "EWS & rủi ro", exact: true }).click();
   await expect(
     page.getByText("Chưa có EWS intake hoặc policy handoff đang vận hành.", {
       exact: false,
@@ -360,25 +371,390 @@ test("layout fits desktop and narrow screens in both themes", async ({
   }
 });
 
-test('late wrapup keeps form open and cannot silently reopen a closed case', async ({ page }) => {
+test("late wrapup keeps form open and cannot silently reopen a closed case", async ({
+  page,
+}) => {
   await setup(page);
-  await page.route('**/api/cases/C1/call-intent', route => route.fulfill({ json: { is_allowed: true, guardrail_token: 'SIMULATED-TOKEN', policy_version: 'test' } }));
-  await page.route('**/api/cases/C1/call-wrapup', route => route.fulfill({ status: 409, json: { detail: 'Case closed while call was in progress' } }));
-  await page.getByRole('button', { name: 'Kiểm tra & gọi mô phỏng', exact: true }).first().click();
-  await expect(page.getByRole('heading', { name: 'Cuộc gọi mô phỏng đang mở', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Kết thúc & ghi nhận kết quả', exact: true }).click();
-  await page.getByLabel('Lý do / nội dung ghi nhận').fill('Ghi nhận cuộc gọi đang diễn ra khi case thay đổi.');
-  await page.getByRole('button', { name: 'Lưu vào hệ thống', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Case closed');
-  await expect(page.getByLabel('Lý do / nội dung ghi nhận')).toHaveValue(/Ghi nhận cuộc gọi/);
-  await expect(page.getByRole('button', { name: 'Lưu vào hệ thống', exact: true })).toBeDisabled();
+  await page.route("**/api/cases/C1/call-intent", (route) =>
+    route.fulfill({
+      json: {
+        is_allowed: true,
+        guardrail_token: "SIMULATED-TOKEN",
+        policy_version: "test",
+      },
+    }),
+  );
+  await page.route("**/api/cases/C1/call-wrapup", (route) =>
+    route.fulfill({
+      status: 409,
+      json: { detail: "Case closed while call was in progress" },
+    }),
+  );
+  await page
+    .getByRole("button", { name: "Kiểm tra & gọi mô phỏng", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Cuộc gọi mô phỏng đang mở",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Kết thúc & ghi nhận kết quả", exact: true })
+    .click();
+  await page
+    .getByLabel("Lý do / nội dung ghi nhận")
+    .fill("Ghi nhận cuộc gọi đang diễn ra khi case thay đổi.");
+  await page
+    .getByRole("button", { name: "Lưu vào hệ thống", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("Case closed");
+  await expect(page.getByLabel("Lý do / nội dung ghi nhận")).toHaveValue(
+    /Ghi nhận cuộc gọi/,
+  );
+  await expect(
+    page.getByRole("button", { name: "Lưu vào hệ thống", exact: true }),
+  ).toBeDisabled();
 });
 
-test('an API error never presents the stale case as actionable', async ({ page }) => {
+test("an API error never presents the stale case as actionable", async ({
+  page,
+}) => {
   await setup(page);
-  await page.route('**/api/cases/C1/workspace', route => route.fulfill({ status: 503, json: { detail: 'temporarily unavailable' } }));
-  await page.getByRole('button', { name: 'Tải lại dữ liệu', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('tạm khóa tác nghiệp');
-  for (const button of await page.getByRole('button', { name: 'Kiểm tra & gọi mô phỏng', exact: true }).all()) await expect(button).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Lên lịch liên hệ', exact: true })).toBeDisabled();
+  await page.route("**/api/cases/C1/workspace", (route) =>
+    route.fulfill({ status: 503, json: { detail: "temporarily unavailable" } }),
+  );
+  await page
+    .getByRole("button", { name: "Tải lại dữ liệu", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("tạm khóa tác nghiệp");
+  for (const button of await page
+    .getByRole("button", { name: "Kiểm tra & gọi mô phỏng", exact: true })
+    .all())
+    await expect(button).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Lên lịch liên hệ", exact: true }),
+  ).toBeDisabled();
+});
+
+test("notes persist and unsaved drafts prevent switching customer case", async ({
+  page,
+}) => {
+  await setup(page);
+  await page
+    .getByLabel("Nội dung ghi chú nhanh")
+    .fill("Khách hàng cung cấp thông tin cần xác minh.");
+  await expect(page.getByLabel("Chọn case của khách hàng")).toBeDisabled();
+  await page.evaluate(() => {
+    location.hash = "/cases/C2/work";
+  });
+  await expect(page.getByRole("alert")).toContainText("Hoàn tất hoặc đóng");
+  await page.getByRole("button", { name: "Lưu ghi chú", exact: true }).click();
+  await expect(page.getByLabel("Nội dung ghi chú nhanh")).toHaveValue("");
+  await page.reload();
+  await expect(
+    page.getByText("Khách hàng cung cấp thông tin cần xác minh.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByLabel("Chọn case của khách hàng").selectOption("C2");
+  await expect(
+    page.getByRole("heading", { name: "Khách hàng thứ hai" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Khách hàng cung cấp thông tin cần xác minh.", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+});
+
+test("notes retain draft and retry lost response idempotently", async ({
+  page,
+}) => {
+  const { seen } = await setup(page, { lostResponse: true });
+  await page
+    .getByLabel("Nội dung ghi chú nhanh")
+    .fill("Giữ nguyên ghi chú khi mất mạng.");
+  await page.getByRole("button", { name: "Lưu ghi chú", exact: true }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByLabel("Nội dung ghi chú nhanh")).toHaveValue(
+    "Giữ nguyên ghi chú khi mất mạng.",
+  );
+  await page.getByRole("button", { name: "Lưu ghi chú", exact: true }).click();
+  await expect(page.getByLabel("Nội dung ghi chú nhanh")).toHaveValue("");
+  expect(seen[0]).toBe(seen[1]);
+  await expect(
+    page.getByText("Giữ nguyên ghi chú khi mất mạng.", { exact: true }),
+  ).toHaveCount(1);
+});
+
+test("note conflict requires explicit reload and keeps original content", async ({
+  page,
+}) => {
+  const { seen } = await setup(page, { conflict: true });
+  await page
+    .getByLabel("Nội dung ghi chú nhanh")
+    .fill("Ghi chú chưa lưu khi case thay đổi.");
+  await page.getByRole("button", { name: "Lưu ghi chú", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Hồ sơ hoặc đề xuất đã thay đổi",
+  );
+  await expect(page.getByLabel("Nội dung ghi chú nhanh")).toHaveValue(
+    "Ghi chú chưa lưu khi case thay đổi.",
+  );
+  await expect(
+    page.getByRole("button", { name: "Lưu ghi chú", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Tải lại dữ liệu", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Lưu ghi chú", exact: true }).click();
+  await expect(page.getByLabel("Nội dung ghi chú nhanh")).toHaveValue("");
+  expect(seen[0]).not.toBe(seen[1]);
+});
+
+test("wrapup links only the explicitly selected decision and displays outcome trace", async ({
+  page,
+}) => {
+  const { w } = await setup(page);
+  w.decision_feedback = [
+    {
+      feedback_id: "F1",
+      decision: "ACCEPT",
+      reason: "Đã chọn quy tắc để áp dụng",
+      case_version: 0,
+      created_at: new Date().toISOString(),
+    },
+  ];
+  await page
+    .getByRole("button", { name: "Tải lại dữ liệu", exact: true })
+    .click();
+  await page.route("**/api/cases/C1/call-intent", (route) =>
+    route.fulfill({
+      json: {
+        is_allowed: true,
+        guardrail_token: "SIMULATED-TOKEN",
+        policy_version: "test",
+      },
+    }),
+  );
+  let selected: string | null = null;
+  await page.route("**/api/cases/C1/call-wrapup", (route) => {
+    selected = route.request().postDataJSON().decision_feedback_id;
+    w.outcome_feedback = {
+      status: "LOCAL_TRACE_ONLY",
+      causal_attribution: false,
+      links: [
+        {
+          feedback_id: selected,
+          interaction_id: "I1",
+          outcome: "REFUSED",
+          created_at: new Date().toISOString(),
+          ptp_id: null,
+          ptp_status: null,
+          payments: [],
+        },
+      ],
+    };
+    w.case.case_version++;
+    return route.fulfill({
+      json: { committed: true, case_version: w.case.case_version },
+    });
+  });
+  await page
+    .getByRole("button", { name: "Kiểm tra & gọi mô phỏng", exact: true })
+    .first()
+    .click();
+  await page
+    .getByRole("button", { name: "Kết thúc & ghi nhận kết quả", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Quyết định được áp dụng (không bắt buộc)"),
+  ).toHaveValue("");
+  await page
+    .getByLabel("Quyết định được áp dụng (không bắt buộc)")
+    .selectOption("F1");
+  await page.getByLabel("Kết quả", { exact: true }).selectOption("REFUSED");
+  await page
+    .getByLabel("Lý do / nội dung ghi nhận")
+    .fill("Chưa thống nhất phương án.");
+  await page
+    .getByRole("button", { name: "Lưu vào hệ thống", exact: true })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Đã lưu vào hệ thống" }),
+  ).toBeVisible();
+  expect(selected).toBe("F1");
+  await page.getByRole("tab", { name: "Case & xử lý", exact: true }).click();
+  await expect(page.getByText("Quyết định F1", { exact: true })).toBeVisible();
+  await expect(page.getByText("Không có PTP", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Chấp nhận đề xuất ≠ thu hồi thành công.", { exact: false }),
+  ).toBeVisible();
+});
+
+test("readonly notes and unconnected tabs never present active writes or fake scores", async ({
+  page,
+}) => {
+  await setup(page, { readonly: true });
+  await expect(page.getByLabel("Nội dung ghi chú nhanh")).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Lưu ghi chú", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText("Chưa có mô hình rủi ro", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Chưa đủ lịch sử DPD", { exact: true }),
+  ).toBeVisible();
+  for (const title of [
+    "Thông tin khách hàng",
+    "Nghĩa vụ tín dụng",
+    "Case & xử lý",
+    "PTP & thanh toán",
+    "Lịch sử tương tác",
+    "EWS & rủi ro",
+    "Tài sản bảo đảm",
+    "Tài liệu",
+  ]) {
+    await page.getByRole("tab", { name: title, exact: true }).click();
+    await expect(page.getByRole("tabpanel")).toBeVisible();
+  }
+  await expect(
+    page.getByText("Chưa kết nối nguồn dữ liệu", { exact: true }),
+  ).toBeVisible();
+});
+
+test("global search opens selected case and keyboard tabs are navigable", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/customer-search?*", (route) =>
+    route.fulfill({ json: { items: [fixture("C2").case], has_more: false } }),
+  );
+  await page
+    .getByRole("searchbox", {
+      name: "Tìm khách hàng, CIF, MST, khoản vay hoặc case",
+    })
+    .fill("khach hang");
+  await page.getByRole("button", { name: "Tìm kiếm", exact: true }).click();
+  await page.getByRole("button", { name: /Khách hàng thứ hai.*C2/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Khách hàng thứ hai", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Tổng quan", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    page.getByRole("tab", { name: "Thông tin khách hàng", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("End");
+  await expect(
+    page.getByRole("tab", { name: "Tài liệu", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+});
+
+test("corporate profile, EWS provenance, scoped membership and charts render without invented AI", async ({
+  page,
+}) => {
+  const { w } = await setup(page);
+  w.customer_profile = {
+    debtor_cif: "D1",
+    legal_name: "CÔNG TY TNHH MINH PHÁT (E2E)",
+    party_type: "ORGANIZATION",
+    tax_id: "0101234567",
+    industry: "Xây dựng",
+    region: "Hà Nội",
+    rm_name: "RM mô phỏng",
+    source: "CRM fixture",
+    source_as_of: new Date().toISOString(),
+    data_origin: "SYNTHETIC",
+  };
+  w.ews = {
+    status: "RECORDED_EVIDENCE",
+    signals: [
+      {
+        signal_id: "EWS-001",
+        debtor_cif: "D1",
+        title: "Dòng tiền về giảm — dữ liệu kiểm thử",
+        severity: "HIGH",
+        verification: "VERIFIED",
+        source: "EWS fixture",
+        occurred_at: new Date().toISOString(),
+        data_origin: "SYNTHETIC",
+      },
+      {
+        signal_id: "EWS-002",
+        debtor_cif: "D1",
+        title: "Biến động sử dụng hạn mức — kiểm thử",
+        severity: "MEDIUM",
+        verification: "UNVERIFIED",
+        source: "EWS fixture",
+        occurred_at: new Date().toISOString(),
+        data_origin: "SYNTHETIC",
+      },
+    ],
+  };
+  w.policy_handoffs = [
+    {
+      handoff_id: "H1",
+      case_id: "C1",
+      signal_id: "EWS-001",
+      policy_version: "TEST-v1",
+      decision: "REVIEW",
+      reason: "Rà soát bằng chứng",
+      occurred_at: new Date().toISOString(),
+      data_origin: "SYNTHETIC",
+    },
+  ];
+  const h = {
+    status: "OBSERVED",
+    definition: "LATEST_OBSERVATION_PER_LOAN_MONTH_UNWEIGHTED_CURRENT_SCOPE",
+    points: Array.from({ length: 12 }, (_, i) => ({
+      month: `2025-${String(i + 1).padStart(2, "0")}`,
+      max_dpd: i === 3 ? null : i * 3,
+      average_dpd: i === 3 ? null : i * 2,
+      observed_loans: i === 3 ? 1 : 2,
+      scope_loans: 2,
+      oldest_as_of: "2025-09-10T00:00:00Z",
+      newest_as_of: "2025-09-10T00:00:00Z",
+    })),
+  };
+  w.dpd_history = { case: h, customer: h };
+  await page
+    .getByRole("button", { name: "Tải lại dữ liệu", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "CÔNG TY TNHH MINH PHÁT (E2E)" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Khách hàng doanh nghiệp", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "Có bàn giao", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Khách hàng · Đã ghi nhận/ }).click();
+  await expect(
+    page.getByLabel("Không thuộc case đang chọn", { exact: true }),
+  ).toHaveCount(1);
+  await page.waitForTimeout(200);
+  for (const width of [1440, 1920, 1024, 360]) {
+    await page.setViewportSize({ width, height: width < 600 ? 900 : 1080 });
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      )
+      .toBe(true);
+    await page.screenshot({
+      path: `test-results/customer360-${width}.png`,
+      fullPage: true,
+    });
+  }
+  await page.setViewportSize({ width: 1440, height: 1080 });
+  await page.getByRole("button", { name: "Đổi giao diện sáng tối" }).click();
+  await page.waitForTimeout(200);
+  await page.screenshot({
+    path: "test-results/customer360-dark.png",
+    fullPage: true,
+  });
 });

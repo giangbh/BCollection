@@ -6,12 +6,19 @@ import {
   Radar,
   FlaskConical,
   SunMoon,
+  UsersRound,
+  MessagesSquare,
+  Landmark,
+  FileText,
 } from "lucide-react";
 import { CaseQueuePage } from "./workspace/CaseQueuePage";
 import { CaseWorkspacePage } from "./workspace/CaseWorkspacePage";
 import type { Runtime, Section } from "./workspace/types";
+import { sections } from "./workspace/types";
+import { GlobalSearch } from "./workspace/GlobalSearch";
 import { request, errorText } from "./workspace/api";
 import "./workspace/workspace.css";
+import "./workspace/customer360.css";
 
 function routeFromHash() {
   try {
@@ -19,7 +26,7 @@ function routeFromHash() {
     return parts[1] === "cases" && parts[2]
       ? {
           id: decodeURIComponent(parts[2]),
-          section: (["work", "ptp", "evidence"].includes(parts[3])
+          section: (Object.keys(sections).includes(parts[3])
             ? parts[3]
             : "work") as Section,
         }
@@ -105,10 +112,14 @@ export function App() {
       : "/cases";
   };
   const navItems = [
-    { key: "queue", title: "Danh sách hồ sơ", Icon: ListTodo },
-    { key: "work", title: "Hồ sơ xử lý", Icon: BriefcaseBusiness },
+    { key: "queue", title: "Danh sách công việc", Icon: ListTodo },
+    { key: "work", title: "Debtor 360", Icon: UsersRound },
+    { key: "treatment", title: "Case & chiến lược", Icon: BriefcaseBusiness },
     { key: "ptp", title: "PTP & thanh toán", Icon: Handshake },
-    { key: "evidence", title: "EWS & bằng chứng", Icon: Radar },
+    { key: "interactions", title: "Trao đổi & lịch sử", Icon: MessagesSquare },
+    { key: "evidence", title: "EWS & rủi ro", Icon: Radar },
+    { key: "collateral", title: "Tài sản bảo đảm", Icon: Landmark },
+    { key: "documents", title: "Tài liệu", Icon: FileText },
   ];
   return (
     <div id="bc-workspace" style={{ colorScheme: theme }}>
@@ -121,7 +132,7 @@ export function App() {
             </span>
           </div>
           <p>B.Collection</p>
-          <small>COLLECTION WORKSPACE</small>
+          <small>Quản lý thu hồi nợ thông minh</small>
         </div>
         <nav className="bc-nav" aria-label="Điều hướng chính">
           <div className="bc-nav-label">KHÔNG GIAN LÀM VIỆC</div>
@@ -154,8 +165,13 @@ export function App() {
       </aside>
       <div className="bc-body">
         <header className="bc-topbar">
-          <span>
-            Hồ sơ xử lý / <strong>{route.id || "Danh sách"}</strong>
+          <GlobalSearch locked={locked} onSelect={(id) => navigate(id)} />
+          <span className="bc-session">
+            <span className="bc-avatar">BC</span>
+            <span>
+              {runtime?.simulation ? "Phiên mô phỏng" : "Chế độ chỉ đọc"}
+              <small>Chưa tích hợp SSO</small>
+            </span>
           </span>
           <button
             className="bc-link"
@@ -193,6 +209,7 @@ export function App() {
             setSection={(s) => navigate(route.id, s)}
             runtime={runtime}
             onLocked={onLocked}
+            onSelectCase={(id) => navigate(id)}
           />
         ) : (
           <CaseQueuePage onSelect={(id) => navigate(id)} />

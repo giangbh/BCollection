@@ -26,7 +26,7 @@ export function CaseHeader({
           <div className="bc-subtitle">
             <span>CIF {mask(w.case.debtor_cif)}</span>
             <span>{mask(w.case.phone_e164)}</span>
-          <span>{label(w.case.product_code)}</span>
+            <span>{label(w.case.product_code)}</span>
           </div>
         </div>
         <div className="bc-head-meta">
@@ -89,6 +89,13 @@ export function ScopeSummary({
   return (
     <>
       <section className="bc-metrics" aria-label="Tổng hợp nghĩa vụ">
+        <div className="bc-financial-title">
+          <h2>Tổng quan tài chính</h2>
+          <small>
+            {customer ? "Khách hàng · Dữ liệu đã ghi nhận" : "Case đang chọn"} ·
+            Snapshot cũ nhất: {dateTime(scope.oldest_as_of)}
+          </small>
+        </div>
         <div className="bc-metric">
           <label>Nợ quá hạn đã ghi nhận</label>
           <div
@@ -115,6 +122,16 @@ export function ScopeSummary({
           <small>
             {scope.verified_count}/{scope.exposures.length} khoản đã xác minh
           </small>
+        </div>
+        <div className="bc-metric">
+          <label>Số khoản vay</label>
+          <div className="bc-value">{scope.exposures.length}</div>
+          <small>Trong phạm vi đang xem</small>
+        </div>
+        <div className="bc-metric">
+          <label>Ngày thanh toán gần nhất</label>
+          <div className="bc-value">—</div>
+          <small>Chưa có lịch trả nợ nguồn</small>
         </div>
       </section>
       <div className="bc-source">
@@ -174,6 +191,8 @@ export function ExposureTable({
               <th className="num">Dư nợ</th>
               <th className="num">Quá hạn</th>
               <th className="num">DPD</th>
+              <th>Trạng thái nghĩa vụ</th>
+              <th>Thuộc case này</th>
             </tr>
           </thead>
           <tbody>
@@ -181,10 +200,6 @@ export function ExposureTable({
               <tr key={e.loan_id}>
                 <td>
                   <span className="bc-loan">{e.loan_id}</span>
-                  <small>
-                    {label(e.obligation_status)} ·{" "}
-                    {e.case_ids.includes(caseId) ? "Trong case" : "Ngoài case"}
-                  </small>
                   <small>
                     {e.source_as_of
                       ? dateTime(e.source_as_of)
@@ -198,6 +213,25 @@ export function ExposureTable({
                 </td>
                 <td className="num bc-negative">{number(e.overdue_vnd)}</td>
                 <td className="num">{number(e.dpd)}</td>
+                <td>
+                  <span
+                    className={`bc-chip ${e.obligation_status === "OVERDUE" ? "danger" : e.obligation_status === "CURRENT" ? "" : "neutral"}`}
+                  >
+                    {label(e.obligation_status)}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    className={`bc-membership ${e.case_ids.includes(caseId) ? "included" : ""}`}
+                    aria-label={
+                      e.case_ids.includes(caseId)
+                        ? "Thuộc case đang chọn"
+                        : "Không thuộc case đang chọn"
+                    }
+                  >
+                    {e.case_ids.includes(caseId) ? "✓" : "—"}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -207,6 +241,7 @@ export function ExposureTable({
               <td className="num">{number(scope.total_vnd)}</td>
               <td className="num">{number(scope.overdue_vnd)}</td>
               <td className="num">{number(scope.max_dpd)}</td>
+              <td colSpan={2} />
             </tr>
           </tfoot>
         </table>
@@ -235,6 +270,68 @@ export function PtpPaymentPanel({
   const ptps = [...w.ptps].sort((a, b) =>
     b.created_at.localeCompare(a.created_at),
   );
+  if (compact)
+    return (
+      <section className="bc-panel">
+        <div className="bc-panel-head">
+          <div>
+            <h2>PTP gần nhất</h2>
+            <small>Chỉ case đang chọn · Tiền đã liên kết với cam kết</small>
+          </div>
+          <button className="bc-link" onClick={onDetails}>
+            Xem tất cả <ArrowUpRight />
+          </button>
+        </div>
+        {!ptps.length ? (
+          <p className="bc-callout">
+            Chưa có PTP. Không suy ra cam kết từ lời nhắc hoặc SMS đã gửi.
+          </p>
+        ) : (
+          <div className="bc-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>PTP / khoản vay</th>
+                  <th className="num">Cam kết</th>
+                  <th className="num">Đã phân bổ</th>
+                  <th className="num">Còn thiếu</th>
+                  <th>Hạn / trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ptps.slice(0, 1).map((p) => (
+                  <tr key={p.ptp_id}>
+                    <td>
+                      {p.ptp_id}
+                      <small>{p.loan_id}</small>
+                    </td>
+                    <td className="num">{number(p.amount_vnd)}</td>
+                    <td className="num">
+                      {p.status === "UNVERIFIED" ? "—" : number(p.paid_vnd)}
+                    </td>
+                    <td className="num bc-negative">
+                      {p.status === "UNVERIFIED"
+                        ? "—"
+                        : number(Math.max(0, p.amount_vnd - p.paid_vnd))}
+                    </td>
+                    <td>
+                      {dateTime(p.due_at)}
+                      <small>
+                        <span className="bc-chip warn">{label(p.status)}</span>
+                      </small>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="bc-table-note">
+          VND · Còn thiếu tính theo payment đã phân bổ; giữ PTP đúng hạn được
+          đánh giá riêng trong tab chi tiết.
+        </p>
+      </section>
+    );
   return (
     <>
       <section className="bc-panel">
@@ -368,7 +465,15 @@ export function PtpPaymentPanel({
   );
 }
 
-export function CaseTimeline({ w }: { w: Workspace }) {
+export function CaseTimeline({
+  w,
+  compact = false,
+  onDetails,
+}: {
+  w: Workspace;
+  compact?: boolean;
+  onDetails?: () => void;
+}) {
   const events = [
     ...w.case_interactions.map((i) => ({
       id: i.interaction_id,
@@ -381,19 +486,38 @@ export function CaseTimeline({ w }: { w: Workspace }) {
       id: t.transition_id,
       at: t.recorded_at,
       title: `Cập nhật case v${t.case_version}`,
-      detail: t.reason.includes(":") ? label(t.reason.slice(0, t.reason.indexOf(":"))) + ": " + t.reason.slice(t.reason.indexOf(":") + 1) : label(t.reason),
+      detail: t.reason.includes(":")
+        ? label(t.reason.slice(0, t.reason.indexOf(":"))) +
+          ": " +
+          t.reason.slice(t.reason.indexOf(":") + 1)
+        : label(t.reason),
       origin: "Audit ứng dụng",
     })),
   ].sort((a, b) => b.at.localeCompare(a.at));
   return (
     <section className="bc-panel">
       <div className="bc-panel-head">
-        <h2>Diễn biến & lịch sử thay đổi</h2>
-        <span className="bc-chip neutral">Theo nguồn ghi nhận</span>
+        <h2>
+          {compact
+            ? "Lịch sử tương tác gần đây"
+            : "Diễn biến & lịch sử thay đổi"}
+        </h2>
+        {compact ? (
+          <button className="bc-link" onClick={onDetails}>
+            Xem tất cả <ArrowUpRight />
+          </button>
+        ) : (
+          <span className="bc-chip neutral">Theo nguồn ghi nhận</span>
+        )}
       </div>
-      {!events.length && <p className="bc-callout">Chưa có lịch sử.</p>}
+      {!compact && !events.length && (
+        <p className="bc-callout">Chưa có lịch sử.</p>
+      )}
       <ol className="bc-timeline">
-        {events.slice(0, 12).map((e) => (
+        {(compact
+          ? events.filter((e) => e.origin !== "Audit ứng dụng").slice(0, 4)
+          : events.slice(0, 12)
+        ).map((e) => (
           <li key={e.id}>
             <span className="bc-marker" />
             <div>
@@ -407,7 +531,10 @@ export function CaseTimeline({ w }: { w: Workspace }) {
           </li>
         ))}
       </ol>
-      {events.length > 12 && (
+      {compact && !w.case_interactions.length && (
+        <p className="bc-callout">Chưa có tương tác trong case này.</p>
+      )}
+      {!compact && events.length > 12 && (
         <details>
           <summary>{events.length - 12} sự kiện trước đó</summary>
           {events.slice(12).map((e) => (
@@ -467,16 +594,6 @@ export function EvidencePanel({
           {scope.verified_count}/{scope.exposures.length} khoản được xác minh;
           không khẳng định dữ liệu đã bao phủ toàn danh mục Core. Số 0 khác dữ
           liệu thiếu.
-        </p>
-      </section>
-      <section className="bc-panel">
-        <div className="bc-panel-head">
-          <h2>EWS & policy handoff</h2>
-          <span className="bc-chip neutral">Chưa kết nối</span>
-        </div>
-        <p className="bc-callout">
-          Chưa có EWS intake hoặc policy handoff đang vận hành. Không tạo cảnh
-          báo giả hay coi DPD là quyết định bàn giao tự động.
         </p>
       </section>
       <section className="bc-panel">
@@ -560,14 +677,12 @@ export function GuardrailPanel({
         <Clock3 />
         <div>
           <strong>Lịch liên hệ là kế hoạch</strong>
-          <small>Không thay thế quyền thực hiện</small>
         </div>
       </div>
       <div className="bc-rule">
         <Database />
         <div>
           <strong>Core / payment kiểm tra lại</strong>
-          <small>Không dùng dấu tích lưu từ trước</small>
         </div>
       </div>
       <div className="bc-rule">
