@@ -7,6 +7,10 @@ import {
   X,
   Phone,
   Check,
+  Clock,
+  ShieldCheck,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import type {
   CommandResult,
@@ -18,6 +22,7 @@ import type {
 } from "./types";
 import { ApiError, errorText, post, request } from "./api";
 import { actionCopy, dateTime, label, nextAction, stale } from "./model";
+import { AiSpeechWrapupModal } from "./AiSpeechWrapupModal";
 import {
   CaseHeader,
   ScopeSummary,
@@ -83,8 +88,24 @@ export function CaseWorkspacePage({
 
   // Call simulation
   const [call, setCall] = useState<"IDLE" | "CONNECTED" | "WRAPUP">("IDLE");
+  const [callSeconds, setCallSeconds] = useState(6);
+  const [isMuted, setIsMuted] = useState(false);
   const [guard, setGuard] = useState<GuardrailResult | null>(null);
   const [guardMessage, setGuardMessage] = useState("");
+
+  useEffect(() => {
+    if (call !== "CONNECTED") return;
+    const interval = setInterval(() => {
+      setCallSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [call]);
+
+  const formatTimer = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
 
   // Persona
   const [persona, setPersona] = useState<Persona | null>(null);
@@ -199,8 +220,19 @@ export function CaseWorkspacePage({
       );
     }
     if (nextMode === "wrapup") {
+      const initOutcome = (w.case.dpd ?? 29) > 20 ? "REFUSED" : "PTP_AGREED";
+      setOutcome(initOutcome);
+      if (initOutcome === "REFUSED") {
+        setReason(
+          "Khách hàng từ chối cam kết ngày trả cụ thể, phản ứng bực bội khi bị nhắc nợ. Đề xuất chuyển biện pháp cảnh báo văn bản.",
+        );
+      } else {
+        setReason(
+          "Khách xác nhận bận công tác quên lịch nộp, cam kết chuyển khoản đủ qua SmartBanking vào ngày hẹn thanh toán.",
+        );
+      }
       setPtpLoan(w.case_scope.exposures[0]?.loan_id || w.case.loan_id);
-      setPtpAmount(String(w.case.overdue_amount || 50000000));
+      setPtpAmount(String(w.case.overdue_amount || 5000000));
       const d = new Date(Date.now() + 7 * 86400000);
       setPtpDate(d.toISOString().slice(0, 10));
     }
@@ -294,9 +326,14 @@ export function CaseWorkspacePage({
       if (ok) setMode(null);
     } else if (mode === "wrapup") {
       const ok = await perform("call-wrapup", {
+        command_id: `cmd-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        expected_version: w.case.case_version,
         guardrail_token: token.current,
         outcome,
         notes: reason.trim(),
+        loan_id: ptpLoan || w.case.loan_id,
+        ptp_amount: outcome === "PTP_AGREED" ? parseInt(ptpAmount, 10) : undefined,
+        ptp_date: outcome === "PTP_AGREED" ? ptpDate : undefined,
         ptp:
           outcome === "PTP_AGREED"
             ? {
@@ -320,10 +357,14 @@ export function CaseWorkspacePage({
     try {
       const result = await post<GuardrailResult>(`${base}/call-intent`, {
         expected_version: w.case.case_version,
+        target_party_id: w.case.debtor_cif,
+        channel: "VOICE",
       });
       setGuard(result);
       if (result.is_allowed && result.guardrail_token) {
         token.current = result.guardrail_token;
+        setCallSeconds(6);
+        setIsMuted(false);
         setCall("CONNECTED");
         setGuardMessage("Đã đủ điều kiện. Cuộc gọi mô phỏng đang mở.");
       } else {
@@ -409,196 +450,185 @@ export function CaseWorkspacePage({
         </div>
       )}
 
-      {/* Call simulation active bar with exact h2 heading for tests */}
+      {/* Call simulation active bar with softphone controls and exact heading for tests */}
       {call === "CONNECTED" && (
         <section className="bc-call-active-bar" role="alert">
           <div className="bc-call-active-info">
+            <div className="bc-pulse-dot" />
             <Phone size={18} className="bc-pulse-icon" />
             <div>
-              <h2 style={{ fontSize: "14px", margin: 0, fontWeight: 700 }}>
-                Cuộc gọi mô phỏng đang mở
-              </h2>
-              <small>Không kết nối tổng đài hoặc gọi số điện thoại thật.</small>
+              <div className="bc-call-bar-title-row">
+                <h2 style={{ fontSize: "14px", margin: 0, fontWeight: 700 }}>
+                  Cuộc gọi mô phỏng đang mở
+                </h2>
+                <span className="bc-call-timer-chip">
+                  <Clock size={13} />
+                  <span>{formatTimer(callSeconds)}</span>
+                </span>
+                <span className="bc-call-guardrail-chip">
+                  <ShieldCheck size={13} />
+                  <span>Guardrail L6 Active</span>
+                </span>
+              </div>
+              <small>
+                {w.case.full_name} ({w.case.phone_e164 || "+84939158087"}) · Khoản vay {w.case.loan_id} · DPD {w.case.dpd} ngày
+              </small>
             </div>
           </div>
-          <button
-            type="button"
-            className="bc-button danger"
-            onClick={() => {
-              setCall("WRAPUP");
-              open("wrapup");
-            }}
-          >
-            <PhoneOff size={16} />
-            Kết thúc &amp; ghi nhận kết quả
-          </button>
+          <div className="bc-call-actions">
+            <button
+              type="button"
+              className={`bc-button secondary ${isMuted ? "muted" : ""}`}
+              onClick={() => setIsMuted(!isMuted)}
+              title={isMuted ? "Bật mic" : "Tắt mic"}
+            >
+              {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+              <span>{isMuted ? "Bật Mic" : "Tắt Mic"}</span>
+            </button>
+            <button
+              type="button"
+              className="bc-button danger"
+              onClick={() => {
+                setCall("WRAPUP");
+                open("wrapup");
+              }}
+            >
+              <PhoneOff size={16} />
+              Kết thúc &amp; ghi nhận kết quả
+            </button>
+          </div>
         </section>
       )}
 
-      {/* Editor Form Section */}
-      {mode && (
+      {/* AI Speech Wrapup Modal */}
+      {mode === "wrapup" && (
+        <AiSpeechWrapupModal
+          w={w}
+          callSeconds={callSeconds}
+          outcome={outcome}
+          setOutcome={setOutcome}
+          reason={reason}
+          setReason={setReason}
+          ptpLoan={ptpLoan}
+          setPtpLoan={setPtpLoan}
+          ptpAmount={ptpAmount}
+          setPtpAmount={setPtpAmount}
+          ptpDate={ptpDate}
+          setPtpDate={setPtpDate}
+          busy={busy}
+          conflict={conflict}
+          writable={writable}
+          loading={loading}
+          error={error}
+          onClose={() => {
+            setMode(null);
+            if (call === "WRAPUP") setCall("IDLE");
+          }}
+          onSubmit={submit}
+        />
+      )}
+
+      {/* Standard Editor Form Section for non-wrapup modes */}
+      {mode && mode !== "wrapup" && (
         <section className="bc-editor" aria-label="Biểu mẫu tác nghiệp">
           <div className="bc-modal-header">
-              <div>
-                <h2>
+            <div>
+              <h2>
+                {
                   {
-                    {
-                      schedule_contact: "Lên lịch / điều chỉnh lịch",
-                      cancel_schedule: "Hủy lịch liên hệ",
-                      decision_feedback: "Ghi nhận quyết định",
-                      reconcile: "Xác nhận đã rà soát",
-                      wrapup: "Ghi nhận kết quả cuộc gọi mô phỏng",
-                    }[mode]
-                  }
-                </h2>
-                <small>
-                  Case {w.case.case_id} · v{w.case.case_version} · Lưu vào backend{" "}
-                  {runtime?.mode}
-                </small>
-              </div>
+                    schedule_contact: "Lên lịch / điều chỉnh lịch",
+                    cancel_schedule: "Hủy lịch liên hệ",
+                    decision_feedback: "Ghi nhận quyết định",
+                    reconcile: "Xác nhận đã rà soát",
+                  }[mode]
+                }
+              </h2>
+              <small>
+                Case {w.case.case_id} · v{w.case.case_version} · Lưu vào backend{" "}
+                {runtime?.mode}
+              </small>
+            </div>
+            <button
+              type="button"
+              className="bc-modal-close"
+              disabled={busy}
+              onClick={() => setMode(null)}
+            >
+              <X size={18} /> Đóng (chưa lưu)
+            </button>
+          </div>
+
+          <form onSubmit={submit} className="bc-modal-form">
+            {mode === "schedule_contact" && (
+              <>
+                <label htmlFor="schedule-at">Thời gian liên hệ</label>
+                <input
+                  id="schedule-at"
+                  type="datetime-local"
+                  required
+                  value={when}
+                  onChange={(e) => setWhen(e.target.value)}
+                />
+                <p className="bc-form-hint">
+                  Kế hoạch cán bộ · Asia/Ho_Chi_Minh. Không tự ghi nhận rằng
+                  khách hàng đã đồng ý khung giờ này.
+                </p>
+              </>
+            )}
+
+            {mode === "decision_feedback" && (
+              <>
+                <p className="bc-form-callout">
+                  Đề xuất đang phản hồi: {actionCopy[w.next_action.kind].title} ·
+                  Quy tắc {w.next_action.recommendation_id}, không phải AI.
+                </p>
+                <label htmlFor="decision">Quyết định</label>
+                <select
+                  id="decision"
+                  value={decision}
+                  onChange={(e) => setDecision(e.target.value)}
+                >
+                  <option value="ACCEPT">Chấp nhận đề xuất</option>
+                  <option value="ADJUST">Điều chỉnh đề xuất</option>
+                  <option value="DECLINE">Không áp dụng</option>
+                </select>
+              </>
+            )}
+
+            {mode === "reconcile" && (
+              <p className="bc-form-callout">
+                Chỉ xác nhận khi Core mới nhất đã bao phủ payment/reversal và
+                mọi nghĩa vụ. Không tự thay đổi số tiền.
+              </p>
+            )}
+
+            <label htmlFor="reason">Lý do / nội dung ghi nhận</label>
+            <textarea
+              id="reason"
+              required
+              maxLength={2000}
+              rows={4}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+
+            <div className="bc-modal-foot">
+              <button
+                type="submit"
+                className="bc-button primary"
+                disabled={!writable || busy || conflict || loading}
+              >
+                {busy ? "Đang lưu..." : "Lưu vào hệ thống"}
+              </button>
               <button
                 type="button"
-                className="bc-modal-close"
-                disabled={busy}
-                onClick={() => {
-                  setMode(null);
-                  if (call === "WRAPUP") setCall("IDLE");
-                }}
+                className="bc-button secondary"
+                onClick={() => setMode(null)}
               >
-                <X size={18} /> Đóng (chưa lưu)
+                Hủy
               </button>
             </div>
-
-            <form onSubmit={submit} className="bc-modal-form">
-              {mode === "schedule_contact" && (
-                <>
-                  <label htmlFor="schedule-at">Thời gian liên hệ</label>
-                  <input
-                    id="schedule-at"
-                    type="datetime-local"
-                    required
-                    value={when}
-                    onChange={(e) => setWhen(e.target.value)}
-                  />
-                  <p className="bc-form-hint">
-                    Kế hoạch cán bộ · Asia/Ho_Chi_Minh. Không tự ghi nhận rằng
-                    khách hàng đã đồng ý khung giờ này.
-                  </p>
-                </>
-              )}
-
-              {mode === "decision_feedback" && (
-                <>
-                  <p className="bc-form-callout">
-                    Đề xuất đang phản hồi: {actionCopy[w.next_action.kind].title} ·
-                    Quy tắc {w.next_action.recommendation_id}, không phải AI.
-                  </p>
-                  <label htmlFor="decision">Quyết định</label>
-                  <select
-                    id="decision"
-                    value={decision}
-                    onChange={(e) => setDecision(e.target.value)}
-                  >
-                    <option value="ACCEPT">Chấp nhận đề xuất</option>
-                    <option value="ADJUST">Điều chỉnh đề xuất</option>
-                    <option value="DECLINE">Không áp dụng</option>
-                  </select>
-                </>
-              )}
-
-              {mode === "reconcile" && (
-                <p className="bc-form-callout">
-                  Chỉ xác nhận khi Core mới nhất đã bao phủ payment/reversal và
-                  mọi nghĩa vụ. Không tự thay đổi số tiền.
-                </p>
-              )}
-
-              {mode === "wrapup" && (
-                <>
-                  <label htmlFor="outcome">Kết quả</label>
-                  <select
-                    id="outcome"
-                    value={outcome}
-                    onChange={(e) => setOutcome(e.target.value)}
-                  >
-                    <option value="BUSY_NO_ANSWER">Không nghe máy</option>
-                    <option value="REFUSED">Chưa thống nhất thanh toán</option>
-                    <option value="PTP_AGREED">Đồng ý cam kết PTP</option>
-                  </select>
-
-                  {outcome === "PTP_AGREED" && (
-                    <div className="bc-detail-grid">
-                      <div>
-                        <label htmlFor="ptp-loan">Khoản vay áp dụng</label>
-                        <select
-                          id="ptp-loan"
-                          value={ptpLoan || w.case.loan_id}
-                          onChange={(e) => setPtpLoan(e.target.value)}
-                        >
-                          {w.case_scope.exposures.map((l) => (
-                            <option key={l.loan_id} value={l.loan_id}>
-                              {l.loan_id}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label htmlFor="ptp-amount">
-                          Số tiền cam kết (VND nguyên)
-                        </label>
-                        <input
-                          id="ptp-amount"
-                          type="number"
-                          min="1"
-                          required
-                          value={ptpAmount}
-                          onChange={(e) => setPtpAmount(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="ptp-date">
-                          Ngày hẹn · Hết ngày giờ Việt Nam
-                        </label>
-                        <input
-                          id="ptp-date"
-                          type="date"
-                          required
-                          value={ptpDate}
-                          onChange={(e) => setPtpDate(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              <label htmlFor="reason">Lý do / nội dung ghi nhận</label>
-              <textarea
-                id="reason"
-                required
-                maxLength={2000}
-                rows={4}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-
-              <div className="bc-modal-foot">
-                <button
-                  type="submit"
-                  className="bc-button primary"
-                  disabled={!writable || busy || conflict || loading}
-                >
-                  {busy ? "Đang lưu..." : "Lưu vào hệ thống"}
-                </button>
-                <button
-                  type="button"
-                  className="bc-button secondary"
-                  onClick={() => setMode(null)}
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
+          </form>
         </section>
       )}
 
