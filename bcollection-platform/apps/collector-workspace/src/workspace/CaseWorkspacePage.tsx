@@ -12,6 +12,7 @@ import { ApiError, errorText, post, request } from "./api";
 import { actionCopy, dateTime, label, nextAction, stale } from "./model";
 import { sections } from "./types";
 import { ActionRail } from "./ActionRail";
+import { SourceStatus, SourceLoans, CollateralSource, EventIntegrationStatus } from './SourcePanels';
 import {
   CustomerHeader,
   CustomerInformation,
@@ -91,6 +92,7 @@ export function CaseWorkspacePage({
     ["demo", "test"].includes(runtime.mode) &&
     !runtime.integration_read_only &&
     !loadError;
+  const httpBalanceEnabled = runtime?.mode === "demo-http" && !loadError;
 
   const load = useCallback(async () => {
     readAbort.current?.abort();
@@ -165,7 +167,7 @@ export function CaseWorkspacePage({
     kind: string,
     payload: Record<string, unknown>,
   ): Promise<boolean> => {
-    if (!w || !writable || busy || conflict) return false;
+    if (!w || (!writable && !(httpBalanceEnabled && ['balance_check', 'sync_customer', 'sync_payments', 'sync_ews', 'publish_outcomes'].includes(kind))) || busy || conflict) return false;
     setBusy(true);
     setError("");
     setNotice("");
@@ -186,6 +188,7 @@ export function CaseWorkspacePage({
           ? `${base}/call-wrapup`
           : kind === "balance_check"
             ? `${base}/balance-check`
+            : ['sync_customer', 'sync_payments', 'sync_ews', 'publish_outcomes'].includes(kind) ? `${base}/${kind.replace(/_/g, '-')}`
             : `${base}/commands/${kind}`,
         kind === "wrapup"
           ? { ...envelope, ...payload }
@@ -207,7 +210,9 @@ export function CaseWorkspacePage({
       if (alive.current)
         setNotice(
           refreshed
-            ? "Đã lưu vào hệ thống và tải lại trạng thái. Không có cuộc gọi hay tin nhắn thật được gửi."
+            ? ['sync_customer', 'sync_payments', 'sync_ews', 'publish_outcomes'].includes(kind)
+              ? 'Đã chạy tác vụ tích hợp. Xem trạng thái nguồn và nhật ký Payment / EWS / Outcome để kiểm tra lỗi, pending và receipt. Không thực hiện liên hệ thật.'
+              : "Đã lưu vào hệ thống và tải lại trạng thái. Không có cuộc gọi hay tin nhắn thật được gửi."
             : "Đã lưu thành công, nhưng chưa tải lại được trạng thái. Không gửi lại lệnh; hãy tải lại dữ liệu.",
         );
       return true;
@@ -357,6 +362,25 @@ export function CaseWorkspacePage({
         onSelectCase={onSelectCase}
         locked={busy || call !== "IDLE" || !!mode || !!note.trim()}
       />
+      {runtime?.mode === "demo-http" && (
+        <div className="bc-callout">
+          REST demo · Customer 360, payment và EWS qua HTTP mock. CIC và tác nghiệp liên hệ thật chưa kết nối.
+          <button className="bc-link" disabled={!httpBalanceEnabled || busy || conflict || loading}
+            onClick={() => void perform('sync_customer', {})}>Đồng bộ Customer 360</button>
+          {([['sync_payments', 'Đồng bộ thanh toán'], ['sync_ews', 'Đồng bộ EWS'], ['publish_outcomes', 'Gửi outcome']] as const).map(([kind, title]) =>
+            <button key={kind} className="bc-link" disabled={!httpBalanceEnabled || busy || conflict || loading}
+              onClick={() => void perform(kind, {})}>{title}</button>)}
+          <button
+            className="bc-link"
+            disabled={!httpBalanceEnabled || busy || conflict || loading}
+            onClick={() => void perform("balance_check", {})}
+          >
+            Kiểm tra số dư qua REST Core
+          </button>
+        </div>
+      )}
+      <SourceStatus w={w} />
+      <EventIntegrationStatus w={w} />
       <nav className="bc-tabs" role="tablist" aria-label="Chi tiết hồ sơ">
         {(Object.keys(sections) as Section[]).map((s, i, all) => (
           <button
@@ -648,6 +672,7 @@ export function CaseWorkspacePage({
               <div className="bc-overview-summary">
                 <ScopeSummary
                   scope={scope}
+                  loanSource={w.source_data?.loans}
                   customer={customer}
                   onEvidence={() => setSection("evidence")}
                 />
@@ -688,8 +713,10 @@ export function CaseWorkspacePage({
           {section === "customer" && <CustomerInformation w={w} />}
           {section === "loans" && (
             <>
+              <SourceLoans w={w} />
               <ScopeSummary
                 scope={scope}
+                loanSource={w.source_data?.loans}
                 customer={customer}
                 onEvidence={() => setSection("evidence")}
               />
@@ -727,7 +754,8 @@ export function CaseWorkspacePage({
             </>
           )}
           {(section === "collateral" || section === "documents") && (
-            <UnconnectedPanel section={section} />
+            section === 'collateral' && w.source_data?.collateral.snapshot
+              ? <CollateralSource w={w} /> : <UnconnectedPanel section={section} />
           )}
           {section === "ptp" && (
             <>
@@ -842,7 +870,7 @@ export function CaseWorkspacePage({
         <span>
           Case v{w.case.case_version} · {w.case.data_origin} · Asia/Ho_Chi_Minh
         </span>
-        <span>EWS chưa kết nối · Không thực hiện cuộc gọi thật</span>
+        <span>{w.capabilities?.ews_ingress === 'RECEIVED' ? 'Đã nhận EWS demo' : 'EWS chưa đồng bộ hoặc cần kiểm tra'} · Không thực hiện cuộc gọi thật</span>
       </footer>
     </main>
   );

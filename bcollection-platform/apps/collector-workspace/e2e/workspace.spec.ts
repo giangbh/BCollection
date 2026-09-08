@@ -91,6 +91,7 @@ async function setup(
   page: Page,
   opts: {
     readonly?: boolean;
+    demoHttp?: boolean;
     closed?: boolean;
     held?: boolean;
     conflict?: boolean;
@@ -118,7 +119,7 @@ async function setup(
     if (path === "/api/runtime")
       return route.fulfill({
         json: {
-          mode: opts.readonly ? "integration" : "test",
+          mode: opts.readonly ? "integration" : opts.demoHttp ? "demo-http" : "test",
           simulation: !opts.readonly,
           integration_read_only: !!opts.readonly,
           production_ready: false,
@@ -126,6 +127,11 @@ async function setup(
       });
     if (path === "/api/cases")
       return route.fulfill({ json: [w.case, fixture("C2").case] });
+    if (path.endsWith("/balance-check")) {
+      seen.push("balance_check");
+      w.case.case_version++;
+      return route.fulfill({ json: { case_version: w.case.case_version, replayed: false } });
+    }
     if (path.endsWith("/workspace"))
       return route.fulfill({ json: path.includes("/C2/") ? fixture("C2") : w });
     if (path.endsWith("/call-intent"))
@@ -213,6 +219,78 @@ async function fillSchedule(page: Page) {
     .getByLabel("Lý do / nội dung ghi nhận")
     .fill("Xác minh khả năng trả; đây là kế hoạch cán bộ.");
 }
+
+test("demo-http permits only the explicit REST balance action on the workspace", async ({ page }) => {
+  const { seen } = await setup(page, { demoHttp: true });
+  const balance = page.getByRole("button", { name: "Kiểm tra số dư qua REST Core" });
+  await expect(balance).toBeEnabled();
+  await expect(page.getByLabel("Nội dung ghi chú nhanh")).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Lên lịch liên hệ", exact: true })).toBeDisabled();
+  await balance.click();
+  await expect(page.getByText("Đã lưu vào hệ thống và tải lại trạng thái.", { exact: false })).toBeVisible();
+  expect(seen).toEqual(["balance_check"]);
+});
+
+test('Customer 360 sync shows source coverage, schedules and collateral without changing case scope', async ({ page }) => {
+  const { w } = await setup(page, { demoHttp: true });
+  const now = new Date().toISOString();
+  const resource = (items: unknown[], name: string) => ({ status: 'RECORDED', last_attempt_at: now, received_at: now,
+    snapshot: { source_system: name, source_version: 1, as_of: now, data_origin: 'SYNTHETIC', coverage: 'COMPLETE', items } });
+  await page.route('**/api/cases/C1/sync-customer', route => {
+    w.customer_profile = { debtor_cif: 'D1', party_type: 'ORGANIZATION', legal_name: 'CÔNG TY REST DEMO',
+      tax_id: 'DEMO-TAX-D1', industry: 'Xây dựng demo', region: 'Hà Nội demo', rm_name: 'RM demo',
+      source: 'MOCK_CRM', source_as_of: now, data_origin: 'SYNTHETIC' };
+    w.source_data = {
+      profile: resource([], 'MOCK_CRM'), history: resource([], 'MOCK_DWH'), directory: resource([], 'MOCK_DIRECTORY'),
+      loans: resource([{ loan_id: 'L9', product_code: 'LOAN', outstanding_principal: 100000000, outstanding_interest: 0,
+        overdue_amount: 0, dpd: 0, repayment_schedule: [{ due_at: '2026-12-15T09:00:00+07:00', amount_vnd: 5000000 }] }], 'MOCK_CORE'),
+      collateral: resource([{ collateral_id: 'COL-REST-01', loan_ids: ['L9'], description: 'Tài sản REST demo',
+        valuation_vnd: 600000000, valued_at: now, legal_status: 'PLEDGED' }], 'MOCK_LOS'),
+    };
+    return route.fulfill({ json: { resources: {}, financial_state_changed: false } });
+  });
+  await page.getByRole('button', { name: 'Đồng bộ Customer 360', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'CÔNG TY REST DEMO', exact: true })).toBeVisible();
+  await page.getByText('Nguồn dữ liệu Customer 360 · Trạng thái đồng bộ', { exact: true }).click();
+  await expect(page.getByText('Đầy đủ theo contract nguồn').first()).toBeVisible();
+  await page.getByRole('tab', { name: 'Nghĩa vụ tín dụng', exact: true }).click();
+  const row = page.getByRole('row').filter({ hasText: 'L9' });
+  await expect(row).toContainText('Không');
+  await expect(row).toContainText('5.000.000');
+  await page.getByRole('tab', { name: 'Tài sản bảo đảm', exact: true }).click();
+  await expect(page.getByRole('cell', { name: 'COL-REST-01 Tài sản REST demo', exact: true })).toBeVisible();
+  await expect(page.getByText('600.000.000', { exact: false })).toBeVisible();
+  expect(w.case.case_version).toBe(0);
+  expect(w.case_scope.exposures.length).toBe(2);
+});
+
+test('demo event actions show cursor, policy decisions and outcome receipts', async ({ page }) => {
+  const { w } = await setup(page, { demoHttp: true });
+  const seen: string[] = [];
+  w.integration_state = { streams: [], pending_payments: [], ews_decisions: [], delivery: { pending: 0, delivered: 0, events: [] } };
+  await page.route(/\/api\/cases\/C1\/(sync-payments|sync-ews|publish-outcomes)$/, route => {
+    const action = new URL(route.request().url()).pathname.split('/').pop()!;
+    seen.push(action);
+    const state = w.integration_state;
+    if (action === 'sync-payments') state.streams = [{ kind: 'payment', stream_id: 'L1', cursor: 2,
+      complete_through: new Date().toISOString(), applied_through: new Date().toISOString(), last_error: null }];
+    if (action === 'sync-ews') state.ews_decisions = [{ signal_id: 'EWS-DEMO', signal_version: 1,
+      policy_version: 'DEMO_HANDOFF_V1', decision: 'APPLIED', reason: 'Demo treatment review', case_id: 'C1', evaluated_at: new Date().toISOString() }];
+    if (action === 'publish-outcomes') state.delivery = { pending: 0, delivered: 1, events: [
+      { event_id: 'OUTCOME-1', case_version: 3, state: 'DELIVERED', attempts: 1, last_error: null, receipt_id: 'RECEIPT-1' }] };
+    return route.fulfill({ json: { status: 'OK' } });
+  });
+  for (const name of ['Đồng bộ thanh toán', 'Đồng bộ EWS', 'Gửi outcome']) {
+    await page.getByRole('button', { name, exact: true }).click();
+    await expect(page.getByRole('button', { name, exact: true })).toBeEnabled();
+  }
+  await page.getByText('Payment / EWS / Outcome · Nhật ký tích hợp', { exact: true }).click();
+  await expect(page.getByText('payment · L1', { exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'DEMO_HANDOFF_V1', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'RECEIPT-1', exact: true })).toBeVisible();
+  expect(seen).toEqual(['sync-payments', 'sync-ews', 'publish-outcomes']);
+  await expect(page.getByRole('button', { name: 'Lên lịch liên hệ', exact: true })).toBeDisabled();
+});
 
 test("scope totals are consistent and schedule persists after reload", async ({
   page,
@@ -321,7 +399,7 @@ test("feedback persists without invented EWS evidence", async ({ page }) => {
   await expect(page.getByText("Không áp dụng · v0")).toBeVisible();
   await page.getByRole("tab", { name: "EWS & rủi ro", exact: true }).click();
   await expect(
-    page.getByText("Chưa có EWS intake hoặc policy handoff đang vận hành.", {
+    page.getByText("Xem trạng thái đồng bộ EWS và quyết định policy trong nhật ký tích hợp.", {
       exact: false,
     }),
   ).toBeVisible();

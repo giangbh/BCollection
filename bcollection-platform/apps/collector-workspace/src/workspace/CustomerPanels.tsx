@@ -282,6 +282,10 @@ export function DpdChart({ history }: { history?: DpdHistory }) {
         <h2>Lịch sử DPD · 12 tháng</h2>
         <ChartColumn />
       </div>
+      {history?.definition.startsWith('SOURCE_') && <p className="bc-callout">
+        Lịch sử nhập từ nguồn · {history.status}. Quan sát cuối cùng mỗi tháng trong phạm vi khoản vay đang chọn;
+        không thay đổi số dư hiện tại. Xem nguồn và độ mới ở mục trạng thái đồng bộ.
+      </p>}
       {!any ? (
         <Empty
           icon="chart"
@@ -414,8 +418,8 @@ export function EwsPanel({
       {!signals.length ? (
         <Empty
           icon="ews"
-          title="Chưa kết nối nguồn EWS"
-          detail="Chưa có EWS intake hoặc policy handoff đang vận hành. DPD không tự trở thành cảnh báo EWS."
+          title={w.capabilities?.ews_ingress === 'RECEIVED' ? 'Nguồn EWS demo chưa có tín hiệu' : 'Chưa kết nối nguồn EWS'}
+          detail="Xem trạng thái đồng bộ EWS và quyết định policy trong nhật ký tích hợp. DPD không tự trở thành cảnh báo EWS."
         />
       ) : (
         <div className="bc-table-wrap">
@@ -565,7 +569,9 @@ export function HandoffOutcomes({ w }: { w: Workspace }) {
         )}
         <p className="bc-callout">
           Chấp nhận đề xuất ≠ thu hồi thành công. Dấu vết không chứng minh quan
-          hệ nhân quả; chưa phát outcome sang EWS hoặc huấn luyện AI.
+          hệ nhân quả. {w.integration_state?.delivery.delivered
+            ? `Đã nhận receipt cho ${w.integration_state.delivery.delivered} outcome tại EWS mock; xem nhật ký tích hợp.`
+            : 'Chưa có receipt xác nhận outcome từ EWS.'} Chưa huấn luyện AI.
         </p>
       </section>
     </>

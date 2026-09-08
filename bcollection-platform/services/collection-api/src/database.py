@@ -23,6 +23,8 @@ def init_db():
     conn = get_connection()
     try:
         conn.execute("BEGIN IMMEDIATE")
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='mock_metadata'").fetchone():
+            raise ValueError("Refusing legacy mock database; use a separate B.Collection path")
         _init_schema(conn)
         conn.commit()
     except Exception:
@@ -129,10 +131,11 @@ def claim_runtime_database(mode: str):
         current = conn.execute("SELECT value FROM runtime_metadata WHERE key = 'mode'").fetchone()
         if current and current[0] != mode:
             raise ValueError("Database belongs to another runtime profile; use a separate database")
-        if mode == "integration":
+        if mode in {"integration", "demo-http"}:
+            required_origin = "EXTERNAL" if mode == "integration" else "SYNTHETIC"
             for table in ("cases", "case_interactions", "cbr_reference_cases"):
-                if conn.execute(f"SELECT 1 FROM {table} WHERE data_origin != 'EXTERNAL' LIMIT 1").fetchone():
-                    raise ValueError("integration refuses synthetic or unclassified data")
+                if conn.execute(f"SELECT 1 FROM {table} WHERE data_origin != ? LIMIT 1", (required_origin,)).fetchone():
+                    raise ValueError(f"{mode} refuses incompatible or unclassified data")
         conn.execute("INSERT OR IGNORE INTO runtime_metadata VALUES ('mode', ?)", (mode,))
 
 
@@ -148,7 +151,7 @@ def restore_demo_obligations(obl_repo):
 
 def seed_cases_to_db(raw_portfolio: List[Dict[str, Any]], holdout_mgr, obl_repo, as_of=None, reference_seed=42):
     """Nạp 500 hồ sơ ban đầu vào SQLite nếu bảng cases chưa có dữ liệu"""
-    if RuntimeSettings.from_env().mode not in {"demo", "test"}:
+    if RuntimeSettings.from_env().mode not in {"demo", "test", "demo-http"}:
         raise ValueError("Synthetic seeding is forbidden in integration")
     if not raw_portfolio or any(c.get("data_origin") != "SYNTHETIC" for c in raw_portfolio):
         raise ValueError("Seed accepts explicitly labelled synthetic data only")

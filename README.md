@@ -2,7 +2,8 @@
 
 Collector Workbench và nền móng tích hợp EWS cho POC. **Không dùng cho thu hồi nợ
 thật hoặc đưa ra kết luận về khách hàng thật.** Persona, CBR, speech và kênh liên hệ
-hiện còn mô phỏng; EWS intake, policy handoff và outcome feedback chưa triển khai.
+hiện còn mô phỏng; EWS/payment intake, policy handoff và outcome feedback đã có luồng
+REST demo, chưa tích hợp hệ thống thật hoặc policy production.
 
 ## Ranh giới kiến trúc
 
@@ -28,6 +29,19 @@ lịch sử DPD từ snapshot Core và dấu vết quyết định–tương tá
 hợp đồng đọc bằng chứng; ingress realtime, risk model và outcome publisher chưa kết nối.
 
 ## Cài đặt từ checkout mới
+
+ADP-01 bổ sung [REST adapter foundation và Core mock độc lập](docs/ADP-01-REST-Adapter-Foundation.md)
+với profile `demo-http`, kiểm tra số dư qua HTTP và readiness từng nguồn. Đây là
+bước đầu của lộ trình adapters; CRM/EWS/payment ingestion và kênh liên hệ chưa được mở.
+
+[ADP-02 — Customer 360 qua REST](docs/ADP-02-Customer360-Sources.md) bổ sung CRM,
+Core portfolio/lịch trả nợ, history DPD, tài sản và danh bạ RM; ingestion theo yêu cầu,
+trạng thái nguồn và bootstrap case demo từ REST. EWS/payment ingestion và SSO vẫn chưa mở.
+
+[ADP-03 — Payment ingestion](docs/ADP-03-Payment-Ingestion.md) và
+[ADP-04 — EWS/handoff/outcomes](docs/ADP-04-EWS-Handoff-Outcomes.md) bổ sung các luồng
+REST demo tiếp theo: inbox/cursor, payment/reversal/PTP, policy demo có kiểm soát,
+outbox/receipt và giao diện nhật ký tích hợp. SSO và các luồng production vẫn chưa mở.
 
 Yêu cầu Python **3.12**, Node.js **22** và npm. Chạy tại repo root:
 

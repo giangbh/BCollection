@@ -27,6 +27,10 @@ def search_customers(query):
 
 
 def migrate(conn):
+    from integration_events import migrate as migrate_events
+    migrate_events(conn)
+    from customer_ingestion import migrate as migrate_sources
+    migrate_sources(conn)
     conn.execute("""CREATE TABLE IF NOT EXISTS customer_profiles (
         debtor_cif TEXT PRIMARY KEY, party_type TEXT NOT NULL CHECK(party_type IN ('INDIVIDUAL','ORGANIZATION')),
         legal_name TEXT NOT NULL, tax_id TEXT, industry TEXT, region TEXT, rm_name TEXT,
@@ -123,7 +127,7 @@ def read_context(conn, case, case_scope, customer_scope, now):
             FROM payment_ledger WHERE case_id=? AND (ptp_id=? OR reverses_event_id IN
             (SELECT event_id FROM payment_ledger WHERE case_id=? AND ptp_id=?)) ORDER BY occurred_at,event_id''',
             (case['case_id'], link['ptp_id'], case['case_id'], link['ptp_id']))]
-    return {
+    context = {
         'customer_profile': dict(profile) if profile else None,
         'customer_cases': cases,
         'case_notes': [dict(r) for r in conn.execute('SELECT * FROM case_notes WHERE case_id=? ORDER BY created_at DESC,note_id', (case['case_id'],))],
@@ -138,3 +142,18 @@ def read_context(conn, case, case_scope, customer_scope, now):
                          'documents': 'NOT_CONNECTED', 'mentions': 'NOT_CONNECTED',
                          'ews_ingress': 'NOT_CONNECTED', 'outcome_publisher': 'NOT_CONNECTED'},
     }
+    from customer_ingestion import read_sources, enrich_context, imported_history
+    from integration_events import read_state
+    context['integration_state'] = read_state(conn, case)
+    for stream in context['integration_state']['streams']:
+        if stream['kind'] == 'ews':
+            context['capabilities']['ews_ingress'] = stream['last_error'] or 'RECEIVED'
+    if context['integration_state']['delivery']['delivered']:
+        context['capabilities']['outcome_publisher'] = 'DELIVERED'
+    elif context['integration_state']['delivery']['pending']:
+        context['capabilities']['outcome_publisher'] = 'OUTBOX_PENDING'
+    sources = read_sources(conn, case['debtor_cif'], now)
+    if sources['history']['snapshot']:
+        context['dpd_history'] = {name: imported_history(sources['history'], {e['loan_id'] for e in scope['exposures']}, now)
+                                  for name, scope in (('case', case_scope), ('customer', customer_scope))}
+    return enrich_context(context, sources)

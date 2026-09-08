@@ -5,7 +5,7 @@ import {
   CircleHelp,
   Clock3,
 } from "lucide-react";
-import type { Persona, Scope, Workspace } from "./types";
+import type { Persona, Scope, Workspace, SourceResource, SourceLoan } from "./types";
 import { dateTime, label, mask, money, number } from "./model";
 
 export function CaseHeader({
@@ -81,11 +81,19 @@ export function ScopeSummary({
   scope,
   customer,
   onEvidence,
+  loanSource,
 }: {
   scope: Scope;
   customer: boolean;
   onEvidence: () => void;
+  loanSource?: SourceResource<SourceLoan>;
 }) {
+  const scheduledLoans = loanSource?.snapshot?.items;
+  const complete = loanSource?.snapshot?.coverage === 'COMPLETE' && scope.exposures.length > 0 &&
+    scope.exposures.every(e => scheduledLoans?.some(loan => loan.loan_id === e.loan_id));
+  const due = complete ? scheduledLoans?.filter(loan => scope.exposures.some(e => e.loan_id === loan.loan_id))
+    .flatMap(loan => loan.repayment_schedule).map(p => p.due_at)
+    .filter(at => Date.parse(at) >= Date.now()).sort((a, b) => Date.parse(a) - Date.parse(b))[0] : undefined;
   return (
     <>
       <section className="bc-metrics" aria-label="Tổng hợp nghĩa vụ">
@@ -129,9 +137,9 @@ export function ScopeSummary({
           <small>Trong phạm vi đang xem</small>
         </div>
         <div className="bc-metric">
-          <label>Ngày thanh toán gần nhất</label>
-          <div className="bc-value">—</div>
-          <small>Chưa có lịch trả nợ nguồn</small>
+          <label>Kỳ trả nợ sắp tới</label>
+          <div className="bc-value">{due ? new Date(due).toLocaleDateString('vi-VN') : '—'}</div>
+          <small>{complete ? `Lịch nguồn · ${loanSource?.status}; không phải PTP` : 'Chưa đủ lịch trả nợ nguồn trong phạm vi'}</small>
         </div>
       </section>
       <div className="bc-source">

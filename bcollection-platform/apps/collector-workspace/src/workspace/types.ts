@@ -114,6 +114,20 @@ export interface Recommendation {
   contact_hold_reason: string | null;
 }
 export interface Workspace {
+  integration_state?: {
+    streams: { kind: string; stream_id: string; cursor: number; complete_through: string | null; applied_through: string | null; last_error: string | null }[];
+    pending_payments: { event_id: string; stream_id: string; state: string; error: string | null }[];
+    pending_ews?: { event_id: string; state: string; error: string | null }[];
+    ews_decisions: { signal_id: string; signal_version: number; policy_version: string; decision: string; reason: string; case_id: string | null; evaluated_at: string }[];
+    delivery: { pending: number; delivered: number; events: { event_id: string; case_version: number; state: string; attempts: number; last_error: string | null; receipt_id: string | null }[] };
+  };
+  source_data?: {
+    profile: SourceResource<unknown>;
+    loans: SourceResource<SourceLoan>;
+    history: SourceResource<unknown>;
+    collateral: SourceResource<SourceCollateral>;
+    directory: SourceResource<SourceStaff>;
+  };
   case: CaseRecord;
   read_at: string;
   assigned_collector: string | null;
@@ -138,6 +152,41 @@ export interface Workspace {
     links: OutcomeLink[];
   };
   capabilities?: Record<string, string>;
+}
+export interface SourceResource<T> {
+  status: string;
+  last_attempt_at: string | null;
+  received_at: string | null;
+  snapshot: {
+    source_system: string;
+    source_version: number;
+    as_of: string;
+    data_origin: string;
+    coverage: string;
+    items: T[];
+  } | null;
+}
+export interface SourceLoan {
+  loan_id: string;
+  product_code: string;
+  outstanding_principal: number;
+  outstanding_interest: number;
+  overdue_amount: number;
+  dpd: number;
+  repayment_schedule: { due_at: string; amount_vnd: number }[];
+}
+export interface SourceCollateral {
+  collateral_id: string;
+  loan_ids: string[];
+  description: string;
+  valuation_vnd: number;
+  valued_at: string;
+  legal_status: string;
+}
+export interface SourceStaff {
+  user_id: string;
+  display_name: string;
+  org_unit: string;
 }
 export interface CommandResult {
   case_id: string;

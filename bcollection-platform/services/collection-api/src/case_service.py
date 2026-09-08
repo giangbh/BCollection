@@ -28,14 +28,18 @@ class CaseService:
     def __init__(self, clock=None):
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
-    def execute(self, case_id, command_id, expected_version, kind, payload):
+    def execute(self, case_id, command_id, expected_version, kind, payload, *, connection=None):
         if not isinstance(command_id, str) or not command_id.strip() or len(command_id) > 128:
             raise ValueError("command_id is required (max 128 characters)")
         if type(expected_version) is not int or expected_version < 0:
             raise ValueError("expected_version must be a nonnegative integer")
-        conn = get_connection()
+        owned = connection is None
+        conn = connection if connection is not None else get_connection()
+        if not owned and not conn.in_transaction:
+            raise ValueError('Caller must own an active transaction')
         try:
-            conn.execute("BEGIN IMMEDIATE")
+            if owned:
+                conn.execute("BEGIN IMMEDIATE")
             # A balance-check command has no client financial payload: evidence is fetched server-side.
             fingerprint = digest({"kind": kind, "payload": {} if kind == "balance_check" else payload})
             previous = conn.execute("SELECT * FROM case_commands WHERE case_id=? AND command_id=?", (case_id, command_id)).fetchone()
@@ -53,19 +57,42 @@ class CaseService:
                 raise CaseConflict(f"Stale case_version; current={c['case_version']}")
             now = instant(self.clock())
             before = (c["lifecycle"], c["resolution"])
-            if kind in {"schedule_contact", "cancel_schedule", "decision_feedback", "add_note"}:
+            if kind in {"schedule_contact", "cancel_schedule", "decision_feedback", "add_note", "policy_handoff"}:
                 from workspace import apply_command
-                record_id = apply_command(conn, c, kind, payload, now)
+                if kind == 'policy_handoff':
+                    from ews_ingestion import apply_handoff
+                    record_id = apply_handoff(conn, c, payload, now)
+                else:
+                    record_id = apply_command(conn, c, kind, payload, now)
                 version = c['case_version'] + 1
                 # Metadata commands never rewrite balances, lifecycle or legacy PTP projections.
                 conn.execute('UPDATE cases SET case_version=?,updated_at=? WHERE case_id=?', (version, now.isoformat(), case_id))
                 conn.execute('INSERT INTO case_transition_log VALUES(?,?,?,?,?,?,?,?,?,?)', (str(uuid4()), case_id, command_id, c['lifecycle'], c['lifecycle'], c['resolution'], c['resolution'], kind + ':' + payload['reason'].strip(), version, now.isoformat()))
                 result = {'case_id': case_id, 'case_version': version, 'record_id': record_id, 'committed': True, 'replayed': False}
                 conn.execute('INSERT INTO case_commands VALUES(?,?,?,?)', (case_id, command_id, fingerprint, json.dumps(result)))
-                conn.commit()
+                from integration_events import enqueue_outcome
+                enqueue_outcome(conn, case_id, command_id, kind, now)
+                if owned:
+                    conn.commit()
                 return result
             if kind == "wrapup":
                 self._wrapup(conn, c, payload, now)
+            elif kind == 'record_ptp':
+                self._wrapup(conn, c, {**payload, 'outcome': 'PTP_AGREED'}, now, channel='MANUAL')
+            elif kind == 'allocate_payment':
+                p = conn.execute("SELECT * FROM payment_ledger WHERE event_id=? AND case_id=? AND kind='POSTED'", (payload['event_id'], case_id)).fetchone()
+                if not p or p['ptp_id'] or conn.execute('SELECT 1 FROM payment_ledger WHERE reverses_event_id=?', (p['event_id'],)).fetchone():
+                    raise CaseConflict('Unallocated, unreversed payment required')
+                promise = self._ptp(conn, c, payload['ptp_id'])
+                if not payload.get('reason', '').strip() or promise['loan_id'] != p['loan_id'] or instant(p['occurred_at']) < instant(promise['created_at']):
+                    raise ValueError('Allocation identity/time/reason invalid')
+                conn.execute('UPDATE payment_ledger SET ptp_id=?,allocated_vnd=amount_vnd WHERE event_id=?', (promise['ptp_id'], p['event_id']))
+            elif kind == 'payment_source_hold':
+                if not any(e['loan_id'] == payload['loan_id'] for e in self._exposures(conn, c)):
+                    raise ValueError('Loan not in case')
+                c['contact_hold_reason'] = 'PAYMENT_SOURCE_REVIEW'
+                if payload.get('invalidate_completeness'):
+                    conn.execute('UPDATE ptps SET observed_through=NULL WHERE case_id=? AND loan_id=?', (case_id, payload['loan_id']))
             elif kind in {"balance", "balance_check"}:
                 snapshots = payload["snapshots"]
                 if not isinstance(snapshots, list) or not snapshots:
@@ -80,7 +107,8 @@ class CaseService:
                 if not self._payment(conn, c, payload, now):
                     result = {"case_id": case_id, "case_version": c["case_version"], "new_case_status": c["status"], "lifecycle": c["lifecycle"], "resolution": c["resolution"], "contact_hold_reason": c["contact_hold_reason"], "replayed": True, "committed": True}
                     conn.execute("INSERT INTO case_commands VALUES(?,?,?,?)", (case_id, command_id, fingerprint, json.dumps(result)))
-                    conn.commit()
+                    if owned:
+                        conn.commit()
                     return result
                 c["contact_hold_reason"] = "PAYMENT_RECONCILIATION"
             elif kind == "observe_ptp":
@@ -101,6 +129,10 @@ class CaseService:
             elif kind == "reconcile":
                 if not payload.get("reason", "").strip():
                     raise ValueError("Reconciliation reason required")
+                if conn.execute("""SELECT 1 FROM integration_streams WHERE kind='payment' AND last_error IS NOT NULL
+                    AND stream_id IN (SELECT loan_id FROM case_exposures WHERE case_id=?)""", (case_id,)).fetchone() or conn.execute("""SELECT 1 FROM integration_inbox
+                    WHERE kind='payment' AND state!='APPLIED' AND stream_id IN (SELECT loan_id FROM case_exposures WHERE case_id=?)""", (case_id,)).fetchone():
+                    raise CaseConflict('Resolve payment source errors/pending events before reconciliation')
                 exposures = self._exposures(conn, c)
                 if not exposures or any(not e["balance_verified"] or now - instant(e["source_as_of"]) > timedelta(minutes=15) for e in exposures):
                     raise CaseConflict("Fresh verified balances for every exposure required")
@@ -130,16 +162,21 @@ class CaseService:
             conn.execute("""UPDATE cases SET lifecycle=?,resolution=?,contact_hold_reason=?,status=?,
                 overdue_amount=?,total_balance=?,dpd=?,case_version=?,updated_at=?,ptp_amount=?,ptp_date=? WHERE case_id=?""",
                 (c["lifecycle"], c["resolution"], c["contact_hold_reason"], status, overdue, total, dpd, version, now.isoformat(), active["amount_vnd"] if active else None, active["due_at"] if active else None, case_id))
-            conn.execute("INSERT INTO case_transition_log VALUES(?,?,?,?,?,?,?,?,?,?)", (str(uuid4()), case_id, command_id, before[0], c["lifecycle"], before[1], c["resolution"], kind + (":" + payload["reason"] if kind == "reconcile" else ""), version, now.isoformat()))
+            conn.execute("INSERT INTO case_transition_log VALUES(?,?,?,?,?,?,?,?,?,?)", (str(uuid4()), case_id, command_id, before[0], c["lifecycle"], before[1], c["resolution"], kind + (":" + payload["reason"] if kind in {'reconcile', 'allocate_payment'} else ""), version, now.isoformat()))
             result = {"case_id": case_id, "case_version": version, "new_case_status": status, "lifecycle": c["lifecycle"], "resolution": c["resolution"], "contact_hold_reason": c["contact_hold_reason"], "replayed": False, "committed": True}
             conn.execute("INSERT INTO case_commands VALUES(?,?,?,?)", (case_id, command_id, fingerprint, json.dumps(result)))
-            conn.commit()
+            from integration_events import enqueue_outcome
+            enqueue_outcome(conn, case_id, command_id, kind, now, payload if kind == 'payment' else None)
+            if owned:
+                conn.commit()
             return result
         except Exception:
-            conn.rollback()
+            if owned:
+                conn.rollback()
             raise
         finally:
-            conn.close()
+            if owned:
+                conn.close()
 
     def _exposures(self, conn, c):
         return [dict(r) for r in conn.execute("SELECT * FROM case_exposures WHERE case_id=?", (c["case_id"],))]
@@ -178,7 +215,7 @@ class CaseService:
             (*values, s["dpd"], version, at.isoformat(), fingerprint, c["case_id"], s["loan_id"]))
         conn.execute("INSERT INTO exposure_observations VALUES(?,?,?,?,?,?,?,?)", (c['case_id'], s['loan_id'], c['debtor_cif'], version, at.isoformat(), s['dpd'], fingerprint, c['data_origin']))
 
-    def _wrapup(self, conn, c, p, now):
+    def _wrapup(self, conn, c, p, now, channel='VOICE'):
         feedback_id = p.get('decision_feedback_id')
         if feedback_id and not conn.execute("SELECT 1 FROM decision_feedback WHERE feedback_id=? AND case_id=? AND decision IN ('ACCEPT','ADJUST')", (feedback_id, c['case_id'])).fetchone():
             raise ValueError('Accepted or adjusted feedback in this case required')
@@ -204,8 +241,8 @@ class CaseService:
             ptp_id = str(uuid4())
             conn.execute("INSERT INTO ptps(ptp_id,case_id,loan_id,amount_vnd,created_at,due_at,status,data_origin) VALUES(?,?,?,?,?,?,'SCHEDULED',?)", (ptp_id, c["case_id"], loan, amount, now.isoformat(), due.isoformat(), c["data_origin"]))
         conn.execute("""INSERT INTO case_interactions(interaction_id,case_id,channel,collector_name,timestamp,outcome,outcome_label,
-            ptp_amount,ptp_date,notes,sentiment,guardrail_token,created_at,data_origin) VALUES(?,?,'VOICE','Demo collector',?,?,?,?,?,?,'UNASSESSED',?,?,?)""",
-            (interaction_id, c["case_id"], now.isoformat(), p["outcome"], p["outcome"], amount, due.isoformat() if due else None, p.get("notes"), p.get("guardrail_token"), now.isoformat(), c["data_origin"]))
+            ptp_amount,ptp_date,notes,sentiment,guardrail_token,created_at,data_origin) VALUES(?,?,?,'Demo collector',?,?,?,?,?,?,'UNASSESSED',?,?,?)""",
+            (interaction_id, c["case_id"], channel, now.isoformat(), p["outcome"], p["outcome"], amount, due.isoformat() if due else None, p.get("notes"), p.get("guardrail_token"), now.isoformat(), c["data_origin"]))
         if feedback_id:
             conn.execute('INSERT INTO decision_action_links VALUES(?,?,?,?)', (interaction_id, feedback_id, ptp_id, c['case_id']))
 

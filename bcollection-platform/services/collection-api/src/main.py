@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Depends, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -104,6 +104,8 @@ async def enforce_runtime_profile(request, call_next):
         simulated = path.endswith(("/persona", "/similar-cases"))
         if request.method not in {"GET", "HEAD", "OPTIONS"} or simulated:
             return JSONResponse(status_code=503, content={"detail": "PR-01 integration is read-only; simulated intelligence and actions are disabled"})
+    if settings.mode == "demo-http" and path.endswith(("/persona", "/similar-cases", "/call-transcribe", "/call-intent", "/call-wrapup")):
+        return JSONResponse(status_code=503, content={"detail": "ADP-01: intelligence and contact execution are not connected in demo-http"})
     response = await call_next(request)
     response.headers["X-BCollection-Mode"] = settings.mode
     response.headers["X-BCollection-Simulation"] = str(settings.mode != "integration").lower()
@@ -119,10 +121,58 @@ def health():
 def runtime_info():
     return {
         "mode": app.state.settings.mode,
-        "simulation": app.state.settings.mode in {"demo", "test"},
+        "simulation": app.state.settings.mode != "integration",
         "integration_read_only": app.state.settings.mode == "integration",
         "production_ready": False,
+        "adapter_transport": "http" if app.state.settings.mode in {"integration", "demo-http"} else "in-process",
     }
+
+
+@app.get("/api/integrations/readiness")
+def integration_readiness():
+    """Explicit, on-demand probes; liveness/startup never performs network IO."""
+    mode = app.state.settings.mode
+    if mode != "demo-http":
+        return {"mode": mode, "sources": {}, "status": "NOT_PROBED"}
+    from rest_transport import RestTransport, AdapterError
+    sources = {}
+    for name, env in (("core", "CORE_BANKING_API_URL"), ("los", "LOS_API_URL"), ("cic", "CIC_GATEWAY_URL"), ('crm', 'CRM_API_URL'), ('directory', 'DIRECTORY_API_URL'), ('ews', 'EWS_API_URL')):
+        if not os.getenv(env):
+            sources[name] = {'status': 'NOT_CONFIGURED'}
+            continue
+        try:
+            data = RestTransport(os.environ[env], timeout=1).get("readiness")
+            sources[name] = {"status": data.get("status", "INVALID_CONTRACT"), "data_origin": "SYNTHETIC"}
+        except (AdapterError, ValueError):
+            sources[name] = {"status": "UNAVAILABLE"}
+    return {"mode": mode, "sources": sources, "status": "READY" if all(s["status"] == "READY" for s in sources.values()) else "DEGRADED"}
+
+
+@app.post('/api/cases/{case_id}/sync-customer')
+def sync_customer_sources(case_id: str):
+    if app.state.settings.mode != 'demo-http':
+        raise HTTPException(503, 'Customer ingestion enabled only in demo-http')
+    case = get_case_by_id(case_id)
+    if not case:
+        raise HTTPException(404, 'Case not found')
+    from customer_ingestion import synchronize
+    return synchronize(case['debtor_cif'])
+
+
+@app.post('/api/cases/{case_id}/sync-payments')
+@app.post('/api/cases/{case_id}/sync-ews')
+@app.post('/api/cases/{case_id}/publish-outcomes')
+def integration_action(case_id: str, request: Request):
+    if app.state.settings.mode != 'demo-http':
+        raise HTTPException(503, 'ADP-03/04 actions require demo-http')
+    case = get_case_by_id(case_id)
+    if not case or case['data_origin'] != 'SYNTHETIC':
+        raise HTTPException(404, 'Synthetic case not found')
+    from payment_ingestion import sync_payments
+    from ews_ingestion import sync_ews
+    from integration_events import publish_outcomes
+    action = request.url.path.rsplit('/', 1)[-1]
+    return sync_payments(case_id) if action == 'sync-payments' else sync_ews(case['debtor_cif']) if action == 'sync-ews' else publish_outcomes(case_id)
 
 
 @app.get("/api/db/schema")

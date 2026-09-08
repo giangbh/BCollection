@@ -1,53 +1,34 @@
 import os
-import json
-import urllib.request
-import urllib.error
-from typing import Dict, Any, List, Optional
+from urllib.parse import quote, urlencode
 from .client import CoreBankingApiClient
+from rest_transport import RestTransport, required_list
+from rest_transport import AdapterError
+from .contracts import CoreSnapshot
+from pydantic import ValidationError
+
 
 class HttpCoreBankingApiClient(CoreBankingApiClient):
-    """
-    Production Client gọi REST API thật tới hệ thống Core Banking
-    thông qua Enterprise Service Bus (ESB / API Gateway).
-    Hỗ trợ cấu hình Endpoint URL, API Key, Token và Timeout qua biến môi trường.
-    """
-    def __init__(
-        self,
-        base_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        timeout_seconds: int = 5
-    ):
-        self.base_url = (base_url or os.getenv("CORE_BANKING_API_URL", "https://esb.bank.vn/api/core/v1")).rstrip("/")
-        self.api_key = api_key or os.getenv("CORE_BANKING_API_KEY", "")
-        self.timeout = timeout_seconds
+    """Same read transport for synthetic REST and configured legacy REST."""
+    def __init__(self, base_url=None, api_key=None, timeout_seconds=5):
+        self.transport = RestTransport(base_url or os.getenv("CORE_BANKING_API_URL", ""),
+                                       api_key or os.getenv("CORE_BANKING_API_KEY", ""), timeout_seconds)
 
-    def _make_request(self, endpoint: str, method: str = "GET", payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        url = f"{self.base_url}/{endpoint.lstrip('/')}"
-        headers = {
-            "Content-Type": "application/json",
-            "X-Client-Id": "BCOLLECTION_PLATFORM",
-            "Authorization": f"Bearer {self.api_key}" if self.api_key else ""
-        }
-        data = json.dumps(payload).encode("utf-8") if payload else None
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    def fetch_loan_balance(self, loan_id):
+        response = self.transport.get(f"loans/{quote(loan_id, safe='')}/balance")
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as response:
-                if response.status in (200, 201):
-                    return json.loads(response.read().decode("utf-8"))
-                raise RuntimeError(f"Core Banking API Error HTTP {response.status}")
-        except urllib.error.URLError as e:
-            raise ConnectionError(f"Không thể kết nối tới Core Banking ESB tại {url}: {str(e)}")
+            snapshot = CoreSnapshot.model_validate(response["data"])
+            if response.get("status") != "SUCCESS" or snapshot.loan_id != loan_id:
+                raise ValueError("Identity or status mismatch")
+        except (KeyError, ValueError, ValidationError) as exc:
+            raise AdapterError("INVALID_CONTRACT") from None
+        return response
 
-    def fetch_loan_balance(self, loan_id: str) -> Dict[str, Any]:
-        return self._make_request(f"loans/{loan_id}/balance")
+    def fetch_recent_payments(self, loan_id, lookback_minutes=15):
+        response = self.transport.get(f"loans/{quote(loan_id, safe='')}/payments?" + urlencode({"lookback_minutes": lookback_minutes}))
+        return required_list(response, "payments")
 
-    def fetch_recent_payments(self, loan_id: str, lookback_minutes: int = 15) -> List[Dict[str, Any]]:
-        res = self._make_request(f"loans/{loan_id}/payments?lookback_minutes={lookback_minutes}")
-        return res.get("payments", [])
+    def fetch_overdue_portfolio(self, max_dpd=30):
+        return required_list(self.transport.get("portfolio/delinquent?" + urlencode({"max_dpd": max_dpd})), "loans")
 
-    def fetch_overdue_portfolio(self, max_dpd: int = 30) -> List[Dict[str, Any]]:
-        res = self._make_request(f"portfolio/delinquent?max_dpd={max_dpd}")
-        return res.get("loans", [])
-
-    def fetch_customer_inflows(self, debtor_cif: str, months: int = 3) -> Dict[str, Any]:
-        return self._make_request(f"customers/{debtor_cif}/cashflows?months={months}")
+    def fetch_customer_inflows(self, debtor_cif, months=3):
+        return self.transport.get(f"customers/{quote(debtor_cif, safe='')}/cashflows?" + urlencode({"months": months}))
